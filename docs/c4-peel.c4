@@ -1,0 +1,47 @@
+C4Context
+title Peel context
+Person(user, "Reader", "reads docs")
+Person(dev, "Developer", "runs the server")
+System(peel, "Peel", "serves markdown, collects notes")
+System_Ext(agent, "Agent", "reads feedback.jsonl")
+System_Ext(docs, "Docs root", "md and c4 files")
+Rel(user, peel, "reads and annotates")
+Rel(dev, peel, "serves a folder")
+Rel(peel, agent, "appends feedback")
+Rel(docs, peel, "rendered")
+---
+C4Container
+title Peel containers
+Person(user, "Reader", "reads docs")
+Container(cli, "CLI", "flags and embedded web")
+Container(api, "HTTP API", "files, doc, feedback")
+Container(watch, "Watcher", "fsnotify and SSE")
+Container(web, "Web UI", "Alpine and pele")
+ContainerDb(log, "feedback.jsonl", "notes log")
+Rel(user, web, "reads")
+Rel(web, api, "fetches and posts")
+Rel(api, log, "appends")
+Rel(watch, web, "reloads")
+Rel(cli, api, "starts")
+---
+C4Component
+title Web UI components
+Container(web, "Web UI", "Alpine and pele")
+Component(shell, "Shell", "drawers and nav")
+Component(reader, "Reader", "docs and decks")
+Component(c4v, "C4 view", "levels and zoom")
+Component(annotate, "Annotate", "composer and chips")
+Rel(shell, reader, "hosts")
+Rel(shell, c4v, "hosts")
+Rel(reader, annotate, "quotes to")
+Rel(c4v, annotate, "quotes to")
+---
+C4Dynamic
+title Annotation flow
+Person(user, "Reader")
+System(web, "Web UI")
+System(api, "HTTP API")
+ContainerDb(log, "feedback.jsonl")
+Rel_U(user, web, "selects text")
+Rel_U(web, api, "posts note")
+Rel_U(api, log, "appends entry")

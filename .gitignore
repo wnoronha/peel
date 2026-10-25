@@ -1,0 +1,17 @@
+# Binaries
+peel
+peel.exe
+*.exe
+
+# Peel feedback data
+.peel/
+
+# Temporary and build artifacts
+*.tmp
+*.out
+*.test
+
+# OS files
+.DS_Store
+Thumbs.db
+.ai/

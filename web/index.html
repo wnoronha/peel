@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>peel</title>
+<link rel="stylesheet" href="/style.css">
+<script src="/vendor/pele.global.js"></script>
+<script defer src="/vendor/alpine.min.js"></script>
+</head>
+<body data-page="peel">
+<div data-component="container" x-data="peelApp">
+  <header data-component="top">
+    <a data-slot="logo" href="/" @click.prevent="goHome()">▪ peel <span class="weak">/ <span id="rootName" x-text="root">docs</span></span></a>
+    <nav data-component="nav-desktop">
+      <ul>
+        <li><a href="#" @click.prevent="openFiles('all')">Files</a></li>
+        <li><a href="#" @click.prevent="openFiles('decks')">Decks</a></li>
+        <li><a href="#" @click.prevent="openFiles('c4')">C4</a></li>
+        <li><a href="#" @click.prevent="openFeedbackAll()">Feedback <span id="fbCount" x-text="feedbackTotal ? `(${feedbackTotal})` : ''"></span></a></li>
+        <li><a data-slot="cta-button" href="#" @click.prevent="openAnnotate()">✎ Annotate</a></li>
+        <li><button class="mini-btn" @click="toggleTheme()" title="Toggle theme" aria-label="Toggle theme">◐</button></li>
+      </ul>
+    </nav>
+  </header>
+
+  <section data-component="hero">
+    <div data-slot="meta">Page: <span id="crumbs" x-text="crumbs">—</span></div>
+    <h1 id="docTitle" x-text="doc ? doc.title : 'Select a file'">Select a file</h1>
+    <div data-slot="meta" id="docMeta" @click.outside="metaOpen=null" @keydown.escape.window="metaOpen=null">
+      <span x-show="!doc">JSON: .peel/feedback.jsonl · Updated: —</span>
+      <span x-show="doc">JSON: .peel/feedback.jsonl · Updated: live · </span>
+      <span class="meta-drop" x-show="doc">
+        <button class="meta-btn" @click="toggleMeta('headings')" :aria-expanded="metaOpen==='headings'" x-text="headingLabel">headings ▾</button>
+        <span> · </span>
+        <button class="meta-btn" @click="toggleMeta('backlinks')" :aria-expanded="metaOpen==='backlinks'" x-text="backlinkLabel">backlinks ▾</button>
+        <div class="meta-menu" x-show="metaOpen==='headings'">
+          <template x-for="h in (doc ? doc.outline : [])" :key="h.id + h.line">
+            <a :href="'#'+h.id" @click.prevent="jumpToHeading(h)" :style="`padding-left:${8+(h.level-1)*10}px`" x-text="h.text"></a>
+          </template>
+          <span class="weak" x-show="!(doc && doc.outline && doc.outline.length)">No headings</span>
+        </div>
+        <div class="meta-menu" x-show="metaOpen==='backlinks'">
+          <template x-for="p in (doc ? doc.backlinks : [])" :key="p">
+            <a href="#" @click.prevent="openFile(p); metaOpen=null" x-text="p"></a>
+          </template>
+          <span class="weak" x-show="!(doc && doc.backlinks && doc.backlinks.length)">No backlinks</span>
+        </div>
+      </span>
+    </div>
+    <div data-slot="meta" x-show="section">§ <span x-text="section"></span> · <a href="#" @click.prevent="commentOnSection()">Comment on this section</a></div>
+  </section>
+
+  <div data-component="columns">
+    <aside data-component="files" x-show="leftOpen">
+      <div class="panel-body">
+      <div data-component="section-head">
+        <button class="link-btn" @click="showAll=!showAll" :title="showAll ? 'Show recent 5' : 'Show all files'" x-text="showAll ? `All files (${visibleFiles.length}) ▴` : `Recent files (${visibleFiles.length}) ▾`">Recent files ▾</button>
+        <span><button class="mini-btn" @click="toggleLeft()" title="Close files panel ( [ )" aria-label="Close files panel">×</button></span>
+      </div>
+      <div data-component="tabs" role="tablist" style="margin-bottom:12px">
+        <button :class="{active: tab==='all'}" @click="setTab('all')">All</button><button :class="{active: tab==='docs'}" @click="setTab('docs')">Docs</button><button :class="{active: tab==='decks'}" @click="setTab('decks')">Decks</button><button :class="{active: tab==='c4'}" @click="setTab('c4')">C4</button>
+      </div>
+      <input id="filter" x-ref="filter" x-model="query" placeholder="filter files (Ctrl-K)" autocomplete="off">
+      <div id="filetable-wrap" :class="{scroll: showAll && visibleFiles.length > 5}">
+      <table data-component="rankings">
+        <thead><tr>
+          <th @click="sort('path')">File <span x-show="sortKey==='path'" x-text="sortDir===1?'▲':'▼'"></span></th><th class="num" @click="sort('links')">Links <span x-show="sortKey==='links'" x-text="sortDir===1?'▲':'▼'"></span></th>
+        </tr></thead>
+        <tbody id="filelist">
+          <template x-for="(f, i) in visibleFiles" :key="f.path">
+            <tr class="row" :class="{active: current===f.path}" @click="navFile(f.path)">
+              <td><div class="file-row"><span class="type" x-text="typeIcon(f.type)" :title="f.type"></span><a href="#" @click.prevent="navFile(f.path)" :title="f.path" x-text="f.path"></a></div><div class="weak file-title" x-text="f.title"></div></td>
+              <td class="num" x-text="`${f.backlinks||0}← ${f.links||0}→`"></td>
+            </tr>
+          </template>
+          <tr x-show="!visibleFiles.length"><td colspan="2" class="weak">No files match this filter.</td></tr>
+        </tbody>
+      </table>
+      </div>
+      <div data-component="section-head"><span>Outline</span></div>
+      <div id="outline">
+        <template x-for="h in (doc ? doc.outline : [])" :key="h.id + h.line">
+          <a :href="'#'+h.id" @click.prevent="jumpToHeading(h); closeLeft()" :style="`padding-left:${(h.level-1)*10}px`" :class="{active: section===h.text}" x-text="h.text"></a>
+        </template>
+        <span class="weak" x-show="!(doc && doc.outline && doc.outline.length)">—</span>
+      </div>
+      <div data-component="section-head"><span>Linked from</span></div>
+      <div id="backlinks">
+        <template x-for="p in (doc ? doc.backlinks : [])" :key="p">
+          <a href="#" @click.prevent="navFile(p)" x-text="p"></a>
+        </template>
+        <span class="weak" x-show="!(doc && doc.backlinks && doc.backlinks.length)">—</span>
+      </div>
+      </div>
+    </aside>
+
+    <main data-component="content">
+      <div id="deckbar" x-show="doc?.type === 'deck'">
+        <button @click="showSlide(slideIdx-1)" title="Previous slide (←)">←</button>
+        <span class="deck-title weak" x-text="slideTitle"></span>
+        <span class="pos-cluster" title="←/→ navigate · Home/End first/last"><span id="slidePos" x-text="doc ? `${slideIdx+1} / ${doc.slides.length}` : ''"></span></span>
+        <button @click="showSlide(slideIdx+1)" title="Next slide (→)">→</button>
+      </div>
+      <div id="c4bar" x-show="doc?.type === 'c4'">
+        <span class="crumb weak" x-text="c4Crumb"></span>
+        <div class="levels" role="tablist" aria-label="C4 levels">
+          <template x-for="(l, i) in (doc ? doc.levels : [])" :key="l.name + i">
+            <button class="lvl" :class="{on: levelIdx===i}" @click="showLevel(i)" :title="'Go to ' + l.name" :aria-selected="levelIdx===i" x-text="l.name"></button>
+          </template>
+        </div>
+        <span class="zoom">
+          <button @click="c4ZoomBy(-1)" title="Zoom out">−</button>
+          <button @click="c4ZoomFit()" title="Fit to width">Fit</button>
+          <button @click="c4ZoomBy(1)" title="Zoom in">+</button>
+          <button @click="c4ZoomReset()" title="Reset zoom">Reset</button>
+        </span>
+      </div>
+      <article id="content" x-ref="content" x-show="doc?.type !== 'c4'"><p class="weak">Select a file to read.</p></article>
+      <div id="c4view" x-show="doc?.type === 'c4'">
+        <div class="c4-scroll" x-ref="c4scroll">
+          <div class="c4-canvas" x-ref="c4canvas" @click="c4Drill($event)" title="Click a box to drill down"></div>
+        </div>
+        <div class="c4-legend weak"><span><i class="sw sys"></i>system</span><span><i class="sw ext"></i>external</span><span><i class="sw cont"></i>container</span><span><i class="sw comp"></i>component</span><span><i class="sw store"></i>store</span><span><i class="sw person"></i>person</span></div>
+      </div>
+    </main>
+
+    <aside data-component="notes" x-ref="notes" x-show="rightOpen">
+      <div class="panel-body">
+      <div data-component="section-head"><span x-text="`Feedback (${feedback.length})`">Feedback</span><button class="mini-btn" @click="toggleRight()" title="Close feedback panel ( ] )" aria-label="Close feedback panel">×</button></div>
+      <div data-component="tabs" role="tablist" style="margin-bottom:12px">
+        <button :class="{active: !fbAll}" @click="loadFeedback()">This file</button><button :class="{active: fbAll}" @click="loadAllFeedback()">All</button>
+      </div>
+      <div data-slot="card">
+        <div id="selPreview" x-show="selQuote" x-text="selQuote.slice(0, 500)"></div>
+        <div class="chips">
+          <template x-for="p in presets" :key="p.label">
+            <button class="chip" @click="quickNote(p.label)" :title="p.label"><span x-text="p.icon"></span><span class="lbl" x-text="p.label"></span></button>
+          </template>
+        </div>
+        <textarea id="noteText" x-ref="note" x-model="noteText" placeholder="Select text in the doc, then write a note…"></textarea>
+        <button id="saveNote" class="cta secondary" :disabled="!selQuote || !noteText.trim()" @click="saveNote()">Save</button>
+      </div>
+      <p class="weak" x-show="!feedback.length && !fbAll" style="font-size:12px;margin:12px 0 0">No notes yet — select text to start.</p>
+      <p class="weak" x-show="!feedback.length && fbAll" style="font-size:12px;margin:12px 0 0">No feedback yet.</p>
+      <div id="feedback">
+        <template x-for="f in [...feedback].reverse()" :key="f.id">
+          <div class="fb" @click="jumpToFeedback(f)" :title="'Jump to quoted text · L' + f.startLine">
+            <div class="fb-head"><span class="meta" x-text="timeAgo(f.ts)"></span><button class="fb-del" @click.stop="deleteFeedback(f)" title="Delete this note">×</button></div>
+            <div class="meta" x-show="fbAll" x-text="f.file"></div>
+            <div class="fb-note" x-text="f.note"></div>
+            <blockquote x-text="`“${(f.quote||'').slice(0,300)}”`"></blockquote>
+            <div class="meta" x-text="`L${f.startLine}–${f.endLine}`"></div>
+          </div>
+        </template>
+      </div>
+      </div>
+    </aside>
+  </div>
+
+  <footer data-component="footer">
+    <span>peel · <span id="footRoot" x-text="root">docs</span></span>
+    <span><span x-text="sse === 'live' ? '●' : '○'" :style="`color:${sse === 'live' ? 'green' : 'red'}`">●</span> <span x-text="sse === 'live' ? 'live · SSE' : sse + ' · SSE'">live · SSE</span></span>
+  </footer>
+
+  <div id="composer" x-show="composer.open" :style="`left:${composer.x}px;top:${composer.y}px`" @keydown.escape.window="closeComposer()">
+    <button class="cmp-x" @click="closeComposer()" aria-label="Close">×</button>
+    <div class="cmp-quote" x-text="composerQuote"></div>
+    <div class="chips">
+      <template x-for="p in presets" :key="p.label">
+        <button class="chip" @click="quickComposer(p.label)" :title="p.label"><span x-text="p.icon"></span><span class="lbl" x-text="p.label"></span></button>
+      </template>
+    </div>
+    <textarea x-model="composerNote" @keydown.cmd.enter.prevent="saveComposer()" @keydown.ctrl.enter.prevent="saveComposer()" placeholder="Why did you change this?"></textarea>
+    <div class="cmp-bar"><span class="weak">⌘↵ to save</span><button class="cta" @click="saveComposer()">Save</button></div>
+  </div>
+</div>
+<script src="/app.js"></script>
+</body>
+</html>

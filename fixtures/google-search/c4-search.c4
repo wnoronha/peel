@@ -1,0 +1,39 @@
+C4Context
+title Search context
+Person(user, "User", "issues queries")
+System(search, "Search", "crawl, index, serve")
+System_Ext(ads, "Ads", "priced results")
+System_Ext(web, "Web", "crawled pages")
+Rel(user, search, "queries")
+Rel(search, ads, "blends")
+Rel(web, search, "crawled")
+---
+C4Container
+title Search containers
+Person(user, "User", "issues queries")
+Container(blend, "Blender", "merges organic and ads")
+Container(shards, "Shard pool", "postings reads")
+Container(auction, "Auction", "prices ads")
+ContainerDb(index, "Index", "postings store")
+Rel(user, blend, "queries")
+Rel(blend, shards, "top-k reads")
+Rel(blend, auction, "asks prices")
+Rel(shards, index, "reads")
+---
+C4Component
+title Blender components
+Container(blend, "Blender", "merges organic and ads")
+Component(rank, "Ranker", "scores organic", "cascade")
+Component(mix, "Mixer", "blends ads", "rules")
+ComponentDb(log, "Impression log", "audit trail")
+Rel(blend, rank, "delegates")
+Rel(rank, mix, "scored organic")
+Rel(mix, log, "records")
+---
+C4Dynamic
+title Query flow
+Person(user, "User")
+System(search, "Search")
+ContainerDb(index, "Index")
+Rel_U(user, search, "queries")
+Rel_U(search, index, "top-k reads")

@@ -1,0 +1,84 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-release:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        goos: [ linux, darwin, windows ]
+        goarch: [ amd64, arm64 ]
+        exclude:
+          - goos: windows
+            goarch: arm64
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version: '1.24'
+          cache: true
+
+      - name: Build binary
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: 0
+        run: |
+          EXT=""
+          if [ "${{ matrix.goos }}" = "windows" ]; then
+            EXT=".exe"
+          fi
+          OUTPUT="peel-${{ github.ref_name }}-${{ matrix.goos }}-${{ matrix.goarch }}${EXT}"
+          go build -ldflags "-s -w -X main.Version=${{ github.ref_name }} -X main.Commit=${{ github.sha }} -X main.BuildDate=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" -o "$OUTPUT" .
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: peel-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: peel-*
+          if-no-files-found: error
+
+  publish:
+    needs: build-release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v8
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ref="${{ github.ref_name }}"
+          FLAGS=""
+          if [[ "$ref" == *"-dev"* ]]; then
+            echo "Publishing pre-release for tag $ref"
+            FLAGS="--prerelease"
+          else
+            echo "Publishing normal release for tag $ref"
+          fi
+          if gh release view "$ref" >/dev/null 2>&1; then
+            echo "Release $ref already exists; updating assets..."
+            gh release upload "$ref" dist/* --clobber
+          else
+            gh release create "$ref" dist/* \
+              --title "peel $ref" \
+              --generate-notes $FLAGS
+          fi
