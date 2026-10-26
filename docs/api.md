@@ -15,7 +15,7 @@ Lists every served file, sorted by path.
 ]}
 ```
 
-`links` counts `[[wikilinks]]` in the file. `backlinks` counts other files that reference it. Only `.md`, `.markdown`, and `.c4` files are listed. `.git`, `.peel`, and `node_modules` are skipped.
+`links` counts `[[wikilinks]]` and local Markdown doc links (`[label](./doc.md)`) in the file. `backlinks` counts other files that reference it via either form. Only `.md`, `.markdown`, and `.c4` files are listed. `.git`, `.peel`, and `node_modules` are skipped.
 
 ## `GET /api/doc?path=overview.md`
 

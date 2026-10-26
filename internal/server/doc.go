@@ -213,16 +213,20 @@ func (s *Server) handleDoc(w http.ResponseWriter, r *http.Request) {
 	}
 
 	targetMap := s.targetMap()
+	known := s.knownDocSet()
+	render := func(src string) string {
+		return rewriteDocLinks(tagDiagrams(renderMarkdown(s.expandWikilinks(src, targetMap))), rel, known)
+	}
 	if fm.Marp {
 		resp.Type = "deck"
 		resp.IsDeck = true
 		for _, sl := range splitSlides(body) {
-			resp.Slides = append(resp.Slides, tagDiagrams(renderMarkdown(s.expandWikilinks(sl, targetMap))))
+			resp.Slides = append(resp.Slides, render(sl))
 		}
 		resp.HTML = strings.Join(resp.Slides, "\n")
 	} else {
 		resp.Type = "doc"
-		resp.HTML = tagDiagrams(renderMarkdown(s.expandWikilinks(body, targetMap)))
+		resp.HTML = render(body)
 	}
 
 	writeJSON(w, resp)
@@ -231,12 +235,21 @@ func (s *Server) handleDoc(w http.ResponseWriter, r *http.Request) {
 func (s *Server) backlinksFor(rel string) []string {
 	targetLookup := s.targetMap()
 	raws := s.scanRawFiles()
+	seen := make(map[string]bool)
 	var out []string
+
+	add := func(src string) {
+		if !seen[src] {
+			seen[src] = true
+			out = append(out, src)
+		}
+	}
 
 	for _, o := range raws {
 		if o.rel == rel {
 			continue
 		}
+		linked := false
 		matches := wikiTargetRe.FindAllStringSubmatch(o.b, -1)
 		for _, m := range matches {
 			if m[1] != "" {
@@ -244,9 +257,20 @@ func (s *Server) backlinksFor(rel string) []string {
 			}
 			targetKey := strings.ToLower(strings.TrimSpace(m[2]))
 			if dest, ok := targetLookup[targetKey]; ok && dest == rel {
-				out = append(out, o.rel)
+				linked = true
 				break
 			}
+		}
+		if !linked {
+			for _, dest := range collectMarkdownDocLinks(o.rel, o.b) {
+				if dest == rel {
+					linked = true
+					break
+				}
+			}
+		}
+		if linked {
+			add(o.rel)
 		}
 	}
 	if out == nil {

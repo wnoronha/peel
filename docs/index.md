@@ -16,3 +16,11 @@ Peel serves markdown as a readable site and collects notes for agents. Start wit
 - Read: [[read]], [[annotate]], [[view-decks]], [[view-c4]]
 - Build: [[architecture]], [[api]], [[serve]]
 - Model and tour: [[c4-peel]], [[deck-peel-tour]], [[peel-overview]]
+
+## Markdown links
+
+Wikilinks and standard Markdown links both navigate inside Peel. Relative paths resolve from the current file. External URLs open in a new tab.
+
+- [Peel overview](./peel-overview.md)
+- [Architecture](./architecture.md#server)
+- [Goldmark](https://github.com/yuin/goldmark)

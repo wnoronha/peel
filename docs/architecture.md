@@ -6,7 +6,7 @@ Peel is one Go binary that serves markdown as a readable site. The whole UI ship
 
 `main.go` parses `--dir`, `--port`, and `--host`, then embeds `web/` with `go:embed` and serves it as static files with `Cache-Control: no-store`. `internal/server` holds the JSON API, the SSE channel, and a recursive `fsnotify` watcher. Any write under the docs root broadcasts `{type: "reload", path}` on `/events`. The browser refreshes the file list on every event and re-opens the open doc when its path matches.
 
-Markdown rendering is server side with goldmark (GFM, footnotes, typography, unsafe HTML for diagrams and wikilinks). `[[name]]` links resolve by basename, case-insensitively. Backlinks are found by scanning all files for `[[basename]]` references.
+Markdown rendering is server side with goldmark (GFM, footnotes, typography, unsafe HTML for diagrams and links). `[[name]]` wikilinks resolve by basename, case-insensitively, before Goldmark runs. After HTML render, relative `[label](./doc.md)` and `.c4` links become SPA `?file=` anchors (`data-doclink`); `http(s):` links get `target=_blank` and `rel=noopener noreferrer`. Backlinks scan both `[[wikilinks]]` and local Markdown doc links.
 
 ## Modes
 

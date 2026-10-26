@@ -97,10 +97,10 @@ function peelApp() {
         }
       });
       this.$refs.content.addEventListener('click', e => {
-        const a = e.target.closest('a[data-wikilink]');
+        const a = e.target.closest('a[data-wikilink], a[data-doclink]');
         if (a) {
           e.preventDefault();
-          const target = a.dataset.wikilink;
+          const target = a.dataset.wikilink || a.dataset.doclink;
           const href = a.getAttribute('href') || '';
           const hashIdx = href.indexOf('#');
           const hash = hashIdx >= 0 ? href.slice(hashIdx + 1) : '';

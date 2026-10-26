@@ -200,8 +200,8 @@ func (s *Server) listFiles() ([]FileEntry, error) {
 	linkCount := make(map[string]int)
 
 	for _, r := range raws {
-		matches := wikiTargetRe.FindAllStringSubmatch(r.b, -1)
 		count := 0
+		matches := wikiTargetRe.FindAllStringSubmatch(r.b, -1)
 		for _, m := range matches {
 			if m[1] != "" {
 				continue
@@ -209,6 +209,12 @@ func (s *Server) listFiles() ([]FileEntry, error) {
 			count++
 			targetKey := strings.ToLower(strings.TrimSpace(m[2]))
 			if dest, ok := targetLookup[targetKey]; ok && dest != r.rel {
+				backlinks[dest][r.rel] = true
+			}
+		}
+		for _, dest := range collectMarkdownDocLinks(r.rel, r.b) {
+			count++
+			if dest != r.rel && backlinks[dest] != nil {
 				backlinks[dest][r.rel] = true
 			}
 		}
