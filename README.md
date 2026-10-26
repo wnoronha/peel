@@ -31,12 +31,13 @@ Open `http://127.0.0.1:18124/?file=architecture.md`.
 
 | Key | Action |
 |---|---|
-| `Ctrl-K` / `Cmd-K` | Focus file filter input |
+| `Ctrl-P` / `Cmd-P` | Open Goto Anything (jump to file) |
+| `Ctrl-K` / `Cmd-K` | Open Goto Anything (same as `P`) |
 | `[` | Toggle files sidebar |
 | `]` | Toggle feedback drawer |
 | `←` / `→` | Previous / next slide or C4 level |
 | `Home` / `End` | First / last slide or C4 level |
-| `Esc` | Blur search filter or close composer |
+| `Esc` | Close Goto palette, blur filter, or close composer |
 
 ## Feedback (agent review loop)
 

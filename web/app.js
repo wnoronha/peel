@@ -14,6 +14,8 @@ function peelApp() {
     ],
     composer: { open: false, x: 0, y: 0 }, composerNote: '', composerRect: null,
     leftOpen: false, rightOpen: false, metaOpen: null,
+    goto: { open: false, query: '', idx: 0 },
+    gotoHits: [],
 
     typeIcon(t) {
       return t === 'c4' ? '◈' : (t === 'deck' ? '◫' : '▤');
@@ -78,7 +80,14 @@ function peelApp() {
       if (localStorage.getItem('peel-right') === '1') this.rightOpen = true;
       document.addEventListener('selectionchange', () => this.onSelect());
       document.addEventListener('keydown', e => {
-        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); this.$refs.filter.focus(); return; }
+        const mod = e.ctrlKey || e.metaKey;
+        const key = e.key.toLowerCase();
+        if (mod && (key === 'p' || key === 'k')) {
+          e.preventDefault();
+          this.openGoto();
+          return;
+        }
+        if (this.goto.open) return;
         if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
           if (e.key === 'Escape') e.target.blur();
           return;
@@ -136,6 +145,103 @@ function peelApp() {
     toggleRight() { this.rightOpen = !this.rightOpen; localStorage.setItem('peel-right', this.rightOpen ? '1' : '0'); },
     closeLeft() { this.leftOpen = false; localStorage.setItem('peel-left', '0'); },
     navFile(path) { this.openFile(path); this.closeLeft(); },
+
+    // Sublime-style sequential fuzzy score; 0 = no match.
+    fuzzyScore(text, query) {
+      const t = String(text || '').toLowerCase();
+      const q = String(query || '').toLowerCase();
+      if (!q) return 1;
+      let ti = 0, score = 0, run = 0, first = -1;
+      for (let qi = 0; qi < q.length; qi++) {
+        const ch = q[qi];
+        let found = -1;
+        for (let j = ti; j < t.length; j++) {
+          if (t[j] === ch) { found = j; break; }
+        }
+        if (found < 0) return 0;
+        if (first < 0) first = found;
+        run = found === ti ? run + 1 : 1;
+        score += 8 + run * 6;
+        if (found === 0 || /[\/\-_.]/.test(t[found - 1])) score += 18;
+        ti = found + 1;
+      }
+      score += Math.max(0, 40 - first);
+      score += Math.max(0, 30 - (t.length - q.length));
+      return score;
+    },
+    fileParts(path) {
+      const slash = path.lastIndexOf('/');
+      if (slash < 0) return { name: path, dir: '' };
+      return { name: path.slice(slash + 1), dir: path.slice(0, slash) };
+    },
+    rankGotoHits() {
+      const q = (this.goto.query || '').trim();
+      let hits;
+      if (!q) {
+        hits = [...this.files]
+          .sort((a, b) => String(b.modTime || '').localeCompare(String(a.modTime || '')))
+          .slice(0, 24)
+          .map(f => {
+            const parts = this.fileParts(f.path);
+            return { path: f.path, type: f.type, title: f.title, name: parts.name, dir: parts.dir, score: '·' };
+          });
+      } else {
+        hits = [];
+        for (const f of this.files) {
+          const parts = this.fileParts(f.path);
+          const base = this.fuzzyScore(parts.name, q);
+          const full = this.fuzzyScore(f.path, q);
+          const title = this.fuzzyScore(f.title || '', q);
+          // Prefer basename matches.
+          const score = Math.max(base * 2, full, title);
+          if (score <= 0) continue;
+          hits.push({ path: f.path, type: f.type, title: f.title, name: parts.name, dir: parts.dir, score });
+        }
+        hits.sort((a, b) => b.score - a.score || a.path.localeCompare(b.path));
+        hits = hits.slice(0, 40);
+      }
+      this.gotoHits = hits;
+      if (this.goto.idx >= hits.length) this.goto.idx = Math.max(0, hits.length - 1);
+    },
+    openGoto() {
+      if (this.composer.open) this.closeComposer();
+      this.goto.open = true;
+      this.goto.query = '';
+      this.goto.idx = 0;
+      this.rankGotoHits();
+      this.$nextTick(() => {
+        const el = this.$refs.gotoInput;
+        if (el) { el.focus(); el.select(); }
+      });
+    },
+    closeGoto() {
+      this.goto.open = false;
+      this.goto.query = '';
+      this.goto.idx = 0;
+      this.gotoHits = [];
+    },
+    onGotoInput() {
+      this.goto.idx = 0;
+      this.rankGotoHits();
+    },
+    gotoMove(delta) {
+      const n = this.gotoHits.length;
+      if (!n) return;
+      this.goto.idx = (this.goto.idx + delta + n) % n;
+      this.$nextTick(() => {
+        const on = document.querySelector('#gotoList li.on');
+        if (on) on.scrollIntoView({ block: 'nearest' });
+      });
+    },
+    gotoSelect() {
+      const hit = this.gotoHits[this.goto.idx];
+      if (hit) this.gotoOpen(hit.path);
+    },
+    gotoOpen(path) {
+      this.closeGoto();
+      this.openFile(path);
+    },
+
     openFiles(tab) {
       this.tab = tab;
       this.leftOpen = true;

@@ -61,7 +61,7 @@
       <div data-component="tabs" role="tablist" style="margin-bottom:12px">
         <button :class="{active: tab==='all'}" @click="setTab('all')">All</button><button :class="{active: tab==='docs'}" @click="setTab('docs')">Docs</button><button :class="{active: tab==='decks'}" @click="setTab('decks')">Decks</button><button :class="{active: tab==='c4'}" @click="setTab('c4')">C4</button>
       </div>
-      <input id="filter" x-ref="filter" x-model="query" placeholder="filter files (Ctrl-K)" autocomplete="off">
+      <input id="filter" x-ref="filter" x-model="query" placeholder="filter list · Ctrl-P jumps" autocomplete="off">
       <div id="filetable-wrap" :class="{scroll: showAll && visibleFiles.length > 5}">
       <table data-component="rankings">
         <thead><tr>
@@ -173,6 +173,33 @@
     </div>
     <textarea x-model="composerNote" @keydown.cmd.enter.prevent="saveComposer()" @keydown.ctrl.enter.prevent="saveComposer()" placeholder="Why did you change this?"></textarea>
     <div class="cmp-bar"><span class="weak">⌘↵ to save</span><button class="cta" @click="saveComposer()">Save</button></div>
+  </div>
+
+  <div id="goto" x-show="goto.open" x-cloak @click.self="closeGoto()" @keydown.escape.window="goto.open && closeGoto()">
+    <div class="goto-panel" role="dialog" aria-label="Jump to file" @click.stop>
+      <input id="gotoInput" x-ref="gotoInput" type="text" x-model="goto.query"
+        @input="onGotoInput()"
+        @keydown.down.prevent="gotoMove(1)"
+        @keydown.up.prevent="gotoMove(-1)"
+        @keydown.enter.prevent="gotoSelect()"
+        @keydown.escape.prevent="closeGoto()"
+        placeholder="Jump to file…" autocomplete="off" spellcheck="false">
+      <ul id="gotoList" class="goto-list" role="listbox">
+        <template x-for="(hit, i) in gotoHits" :key="hit.path">
+          <li role="option" :class="{on: i === goto.idx}" :aria-selected="i === goto.idx"
+              @click="gotoOpen(hit.path)" @mousemove="goto.idx = i">
+            <span class="goto-score" x-text="hit.score"></span>
+            <span class="goto-type" x-text="typeIcon(hit.type)" :title="hit.type"></span>
+            <span class="goto-body">
+              <span class="goto-name" x-text="hit.name"></span>
+              <span class="goto-path weak" x-show="hit.title" x-text="hit.title"></span>
+            </span>
+          </li>
+        </template>
+        <li class="goto-empty weak" x-show="!gotoHits.length">No matching files</li>
+      </ul>
+      <div class="goto-hint weak">↑↓ move · Enter open · Esc close</div>
+    </div>
   </div>
 </div>
 <script src="/app.js"></script>

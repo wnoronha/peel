@@ -52,4 +52,4 @@ One object per line in `.peel/feedback.jsonl`. Agents watch the file.
 
 ## Keys
 
-Arrows move slides and levels. `Ctrl-K` filters files. `[` and `]` toggle panels. `⌘↵` saves the composer.
+Arrows move slides and levels. `Ctrl-P` opens Goto Anything. `[` and `]` toggle panels. `⌘↵` saves the composer.

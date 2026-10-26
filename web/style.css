@@ -196,3 +196,21 @@ table[data-component="rankings"] td.type{text-align:center;color:var(--color-tex
 .chip .lbl{display:none;position:absolute;left:50%;transform:translateX(-50%);top:calc(100% + 6px);margin:0;background:var(--color-background-strong);color:var(--color-background);padding:4px 10px;border-radius:4px;font-size:11px;white-space:nowrap;z-index:60}
 .chip:hover .lbl{display:block}
 #composer .chips{margin:0 0 8px}
+/* Goto Anything palette */
+[x-cloak]{display:none !important}
+#goto{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.45);display:flex;justify-content:center;align-items:flex-start;padding:12vh 16px 16px}
+.goto-panel{width:min(560px,100%);background:var(--color-background);border:1px solid var(--color-border);border-radius:6px;box-shadow:0 20px 48px rgba(0,0,0,.4);overflow:hidden}
+#gotoInput{width:100%;font:inherit;font-size:15px;background:var(--color-background);border:0;border-bottom:1px solid var(--color-border-weak);padding:14px 16px;color:var(--color-text-strong)}
+#gotoInput:focus{outline:none}
+.goto-list{list-style:none;margin:0;padding:6px;max-height:min(420px,55vh);overflow:auto}
+.goto-list li{display:flex;align-items:baseline;gap:10px;padding:8px 10px;border-radius:4px;cursor:pointer;color:var(--color-text)}
+.goto-list li.on,.goto-list li:hover{background:var(--color-background-strong);color:var(--color-background)}
+.goto-list li.on .weak,.goto-list li:hover .weak{color:inherit;opacity:.7}
+.goto-score{flex-shrink:0;min-width:2.5em;font-size:11px;font-variant-numeric:tabular-nums;opacity:.55}
+.goto-type{flex-shrink:0}
+.goto-body{min-width:0;flex:1;display:flex;flex-direction:column;gap:2px}
+.goto-name{font-weight:500;color:inherit;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.goto-path{font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.goto-empty{cursor:default;padding:16px 10px;justify-content:center}
+.goto-empty:hover{background:transparent;color:var(--color-text-weak)}
+.goto-hint{padding:8px 14px 10px;border-top:1px solid var(--color-border-weak);font-size:11px}

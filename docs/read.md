@@ -20,7 +20,7 @@ Open `http://127.0.0.1:18124/`. You see the file list, the first doc, and empty 
 
 ## Read a page
 
-Click `overview.md` in the file list. The doc renders in the center column. Press `Ctrl-K` to jump to the filter, type a few letters, and open another file.
+Click `overview.md` in the file list. The doc renders in the center column. Press `Ctrl-P` (or `Cmd-P`) to open Goto Anything, type a few letters, and press Enter to open another file.
 
 Click **Files**, **Decks**, or **C4** in the top bar to open the left panel on that tab.
 
