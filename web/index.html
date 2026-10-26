@@ -9,6 +9,14 @@
 <script defer src="/vendor/alpine.min.js"></script>
 </head>
 <body data-page="peel">
+<!-- Lucide icons ISC — web/vendor/lucide/NOTICE -->
+<svg xmlns="http://www.w3.org/2000/svg" style="position:absolute;width:0;height:0;overflow:hidden" aria-hidden="true">
+  <symbol id="lucide-lightbulb" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/></symbol>
+  <symbol id="lucide-wrench" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.106-3.105c.32-.322.863-.22.983.218a6 6 0 0 1-8.259 7.057l-7.91 7.91a1 1 0 0 1-2.999-3l7.91-7.91a6 6 0 0 1 7.057-8.259c.438.12.54.662.219.984z"/></symbol>
+  <symbol id="lucide-file-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M9 15h6"/><path d="M12 18v-6"/></symbol>
+  <symbol id="lucide-a-large-small" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 16 2.536-7.328a1.02 1.02 0 0 1 1.928 0L22 16"/><path d="M15.697 14h5.606"/><path d="m2 16 4.039-9.69a.5.5 0 0 1 .923 0L11 16"/><path d="M3.304 13h6.392"/></symbol>
+  <symbol id="lucide-circle-help" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></symbol>
+</svg>
 <div data-component="container" x-data="peelApp">
   <header data-component="top">
     <a data-slot="logo" href="/" @click.prevent="goHome()">▪ peel <span class="weak">/ <span id="rootName" x-text="root">docs</span></span></a>
@@ -135,7 +143,10 @@
         <div id="selPreview" x-show="selQuote" x-text="selQuote.slice(0, 500)"></div>
         <div class="chips">
           <template x-for="p in presets" :key="p.label">
-            <button class="chip" @click="quickNote(p.label)" :title="p.label"><span x-text="p.icon"></span><span class="lbl" x-text="p.label"></span></button>
+            <button class="chip" @click="quickNote(p.label)" :title="p.label" :aria-label="p.label">
+              <svg class="chip-ico" aria-hidden="true"><use :href="'#lucide-' + p.icon"></use></svg>
+              <span class="lbl" x-text="p.label"></span>
+            </button>
           </template>
         </div>
         <textarea id="noteText" x-ref="note" x-model="noteText" placeholder="Select text in the doc, then write a note…"></textarea>
@@ -168,7 +179,10 @@
     <div class="cmp-quote" x-text="composerQuote"></div>
     <div class="chips">
       <template x-for="p in presets" :key="p.label">
-        <button class="chip" @click="quickComposer(p.label)" :title="p.label"><span x-text="p.icon"></span><span class="lbl" x-text="p.label"></span></button>
+        <button class="chip" @click="quickComposer(p.label)" :title="p.label" :aria-label="p.label">
+          <svg class="chip-ico" aria-hidden="true"><use :href="'#lucide-' + p.icon"></use></svg>
+          <span class="lbl" x-text="p.label"></span>
+        </button>
       </template>
     </div>
     <textarea x-model="composerNote" @keydown.cmd.enter.prevent="saveComposer()" @keydown.ctrl.enter.prevent="saveComposer()" placeholder="Why did you change this?"></textarea>

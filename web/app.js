@@ -6,11 +6,11 @@ function peelApp() {
     root: 'docs', query: '', sortKey: 'path', sortDir: 1, userSorted: false, showAll: false,
     noteText: '', selQuote: '', feedback: [], feedbackTotal: 0, fbAll: false, sse: 'connecting', section: '', slideTitle: '',
     presets: [
-      { icon: '💡', label: 'Explain this' },
-      { icon: '🛠', label: 'Fix this' },
-      { icon: '📖', label: 'Add example' },
-      { icon: '🎯', label: 'Simplify this' },
-      { icon: '❓', label: 'Question' },
+      { icon: 'lightbulb', label: 'Explain this' },
+      { icon: 'wrench', label: 'Fix this' },
+      { icon: 'file-plus', label: 'Add example' },
+      { icon: 'a-large-small', label: 'Simplify this' },
+      { icon: 'circle-help', label: 'Question' },
     ],
     composer: { open: false, x: 0, y: 0 }, composerNote: '', composerRect: null,
     leftOpen: false, rightOpen: false, metaOpen: null,
@@ -18,7 +18,7 @@ function peelApp() {
     gotoHits: [],
 
     typeIcon(t) {
-      return t === 'c4' ? '◈' : (t === 'deck' ? '◫' : '▤');
+      return t === 'c4' ? '[c4]' : (t === 'deck' ? '[dk]' : '[md]');
     },
 
     get crumbs() {
@@ -249,9 +249,8 @@ function peelApp() {
       setTimeout(() => this.$refs.filter && this.$refs.filter.focus(), 50);
     },
     openAnnotate() {
-      this.rightOpen = true;
-      localStorage.setItem('peel-right', '1');
-      setTimeout(() => this.$refs.note && this.$refs.note.focus(), 50);
+      this.toggleRight();
+      if (this.rightOpen) setTimeout(() => this.$refs.note && this.$refs.note.focus(), 50);
     },
     openFeedbackAll() {
       this.rightOpen = true;

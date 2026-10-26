@@ -81,6 +81,7 @@ make test
 - Design tokens, typography, and paper layout inspired by [opencode.ai](https://opencode.ai).
 - Diagram rendering by [Pele](https://github.com/obsidianmd/pele) (Obsidian zero-dependency Mermaid/C4 SVG engine).
 - Client-side interactivity by [Alpine.js](https://alpinejs.dev/).
+- Action-chip icons by [Lucide](https://lucide.dev/) (ISC; vendored subset in `web/vendor/lucide/`).
 - Server-side markdown parsing by [Goldmark](https://github.com/yuin/goldmark).
 - File system event monitoring by [fsnotify](https://github.com/fsnotify/fsnotify).
 
