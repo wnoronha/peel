@@ -36,6 +36,7 @@ type OutlineItem struct {
 
 type C4Level struct {
 	Name   string `json:"name"`
+	Kind   string `json:"kind"` // Context | Container | Component | Code | Deployment
 	Source string `json:"source"`
 }
 
@@ -191,7 +192,7 @@ func (s *Server) handleDoc(w http.ResponseWriter, r *http.Request) {
 			if name == "" {
 				name = fmt.Sprintf("Level %d", i+1)
 			}
-			resp.Levels = append(resp.Levels, C4Level{Name: name, Source: src})
+			resp.Levels = append(resp.Levels, C4Level{Name: name, Kind: c4Kind(src), Source: src})
 			resp.Outline = append(resp.Outline, OutlineItem{Level: 1, Text: name, Line: i + 1, ID: slugify(name)})
 		}
 		writeJSON(w, resp)

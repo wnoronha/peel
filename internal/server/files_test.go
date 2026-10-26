@@ -68,6 +68,15 @@ Container(c, "Web App")`
 	}
 
 	levels := splitC4Levels(c4Source)
+	if got := c4Kind(levels[0]); got != "Context" {
+		t.Fatalf("expected kind Context, got %q", got)
+	}
+	if got := c4Kind(levels[1]); got != "Container" {
+		t.Fatalf("expected kind Container, got %q", got)
+	}
+	if got := c4Kind("C4Dynamic\ntitle Flow"); got != "Code" {
+		t.Fatalf("expected Dynamic→Code, got %q", got)
+	}
 	if len(levels) != 2 {
 		t.Fatalf("expected 2 levels, got %d", len(levels))
 	}

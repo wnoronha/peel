@@ -34,6 +34,37 @@ function peelApp() {
       if (name && name === this.doc.title) return name;
       return `${this.doc.title} › ${name}`;
     },
+    get c4LevelName() {
+      if (this.doc?.type !== 'c4') return '—';
+      const l = (this.doc.levels || [])[this.levelIdx];
+      return l ? l.name : '—';
+    },
+    get c4LevelKind() {
+      if (this.doc?.type !== 'c4') return '';
+      return this.c4Kind((this.doc.levels || [])[this.levelIdx]);
+    },
+    get c4LevelPos() {
+      if (this.doc?.type !== 'c4') return '';
+      const n = (this.doc.levels || []).length;
+      if (!n) return '';
+      return `${this.levelIdx + 1}/${n}`;
+    },
+    c4Kind(l) {
+      if (!l) return '';
+      if (l.kind) return l.kind;
+      const m = String(l.source || '').match(/^\s*(C4Context|C4Container|C4Component|C4Code|C4Dynamic|C4Deployment)\b/m);
+      if (!m) return '';
+      return ({ C4Context: 'Context', C4Container: 'Container', C4Component: 'Component', C4Code: 'Code', C4Dynamic: 'Code', C4Deployment: 'Deployment' })[m[1]] || '';
+    },
+    c4KindIcon(l) {
+      const k = l ? this.c4Kind(l) : this.c4LevelKind;
+      return ({ Context: 'layers', Container: 'box', Component: 'component', Code: 'code-xml', Deployment: 'server' })[k] || '';
+    },
+    c4LevelLabel(l) {
+      if (!l) return '—';
+      const k = this.c4Kind(l);
+      return k ? `${k} · ${l.name}` : l.name;
+    },
     get headingLabel() {
       if (!this.doc) return 'headings ▾';
       if (this.doc.type === 'c4') {

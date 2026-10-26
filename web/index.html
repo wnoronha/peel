@@ -16,6 +16,11 @@
   <symbol id="lucide-file-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M9 15h6"/><path d="M12 18v-6"/></symbol>
   <symbol id="lucide-a-large-small" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 16 2.536-7.328a1.02 1.02 0 0 1 1.928 0L22 16"/><path d="M15.697 14h5.606"/><path d="m2 16 4.039-9.69a.5.5 0 0 1 .923 0L11 16"/><path d="M3.304 13h6.392"/></symbol>
   <symbol id="lucide-circle-help" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></symbol>
+  <symbol id="lucide-layers" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83z"/><path d="M2 12a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 12"/><path d="M2 17a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 17"/></symbol>
+  <symbol id="lucide-box" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></symbol>
+  <symbol id="lucide-component" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15.536 11.293a1 1 0 0 0 0 1.414l2.376 2.377a1 1 0 0 0 1.414 0l2.377-2.377a1 1 0 0 0 0-1.414l-2.377-2.377a1 1 0 0 0-1.414 0z"/><path d="M2.297 11.293a1 1 0 0 0 0 1.414l2.377 2.377a1 1 0 0 0 1.414 0l2.377-2.377a1 1 0 0 0 0-1.414L6.088 8.916a1 1 0 0 0-1.414 0z"/><path d="M8.916 17.912a1 1 0 0 0 0 1.415l2.377 2.376a1 1 0 0 0 1.414 0l2.377-2.376a1 1 0 0 0 0-1.415l-2.377-2.376a1 1 0 0 0-1.414 0z"/><path d="M8.916 4.674a1 1 0 0 0 0 1.414l2.377 2.376a1 1 0 0 0 1.414 0l2.377-2.376a1 1 0 0 0 0-1.414l-2.377-2.377a1 1 0 0 0-1.414 0z"/></symbol>
+  <symbol id="lucide-code-xml" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 16 4-4-4-4"/><path d="m6 8-4 4 4 4"/><path d="m14.5 4-5 16"/></symbol>
+  <symbol id="lucide-server" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="8" x="2" y="2" rx="2" ry="2"/><rect width="20" height="8" x="2" y="14" rx="2" ry="2"/><line x1="6" x2="6.01" y1="6" y2="6"/><line x1="6" x2="6.01" y1="18" y2="18"/></symbol>
 </svg>
 <div data-component="container" x-data="peelApp">
   <header data-component="top">
@@ -35,10 +40,10 @@
   <section data-component="hero">
     <div data-slot="meta">Page: <span id="crumbs" x-text="crumbs">—</span></div>
     <h1 id="docTitle" x-text="doc ? doc.title : 'Select a file'">Select a file</h1>
-    <div data-slot="meta" id="docMeta" @click.outside="metaOpen=null" @keydown.escape.window="metaOpen=null">
+    <div data-slot="meta" id="docMeta" @keydown.escape.window="metaOpen=null">
       <span x-show="!doc">JSON: .peel/feedback.jsonl · Updated: —</span>
       <span x-show="doc">JSON: .peel/feedback.jsonl · Updated: live · </span>
-      <span class="meta-drop" x-show="doc">
+      <span class="meta-drop" x-show="doc" @click.outside="if (metaOpen==='headings' || metaOpen==='backlinks') metaOpen=null">
         <button class="meta-btn" @click="toggleMeta('headings')" :aria-expanded="metaOpen==='headings'" x-text="headingLabel">headings ▾</button>
         <span> · </span>
         <button class="meta-btn" @click="toggleMeta('backlinks')" :aria-expanded="metaOpen==='backlinks'" x-text="backlinkLabel">backlinks ▾</button>
@@ -110,13 +115,25 @@
         <span class="pos-cluster" title="←/→ navigate · Home/End first/last"><span id="slidePos" x-text="doc ? `${slideIdx+1} / ${doc.slides.length}` : ''"></span></span>
         <button @click="showSlide(slideIdx+1)" title="Next slide (→)">→</button>
       </div>
-      <div id="c4bar" x-show="doc?.type === 'c4'">
-        <span class="crumb weak" x-text="c4Crumb"></span>
-        <div class="levels" role="tablist" aria-label="C4 levels">
-          <template x-for="(l, i) in (doc ? doc.levels : [])" :key="l.name + i">
-            <button class="lvl" :class="{on: levelIdx===i}" @click="showLevel(i)" :title="'Go to ' + l.name" :aria-selected="levelIdx===i" x-text="l.name"></button>
-          </template>
+      <div id="c4bar" x-show="doc?.type === 'c4'" @click.outside="if (metaOpen==='c4level') metaOpen=null">
+        <div class="c4-level">
+          <button type="button" class="c4-level-btn" @click="toggleMeta('c4level')" :aria-expanded="metaOpen==='c4level'" aria-haspopup="listbox" :aria-label="c4LevelKind ? (c4LevelKind + ' — ' + c4LevelName) : 'Choose C4 diagram level'" :title="c4LevelKind ? (c4LevelKind + ' · ' + c4LevelPos) : c4LevelPos">
+            <svg class="c4-level-ico" aria-hidden="true" x-show="c4KindIcon()"><use :href="'#lucide-' + c4KindIcon()"></use></svg>
+            <span class="c4-level-value" x-text="c4LevelName">—</span>
+            <span class="c4-level-chev" aria-hidden="true">▾</span>
+          </button>
+          <div class="meta-menu c4-level-menu" x-show="metaOpen==='c4level'" role="listbox" aria-label="C4 levels">
+            <template x-for="(l, i) in (doc ? doc.levels : [])" :key="l.name + i">
+              <button type="button" class="c4-level-opt" role="option" :aria-selected="levelIdx===i" :class="{on: levelIdx===i}" :title="c4Kind(l)" @click="showLevel(i); metaOpen=null">
+                <span class="c4-level-check" aria-hidden="true" x-text="levelIdx===i ? '✓' : ''"></span>
+                <svg class="c4-level-ico" aria-hidden="true" x-show="c4KindIcon(l)"><use :href="'#lucide-' + c4KindIcon(l)"></use></svg>
+                <span class="c4-level-opt-name" x-text="l.name"></span>
+              </button>
+            </template>
+            <span class="weak" x-show="!(doc && doc.levels && doc.levels.length)">No levels</span>
+          </div>
         </div>
+        <span class="c4-spacer"></span>
         <span class="zoom">
           <button @click="c4ZoomBy(-1)" title="Zoom out">−</button>
           <button @click="c4ZoomFit()" title="Fit to width">Fit</button>

@@ -65,6 +65,31 @@ func c4Title(body, rel string) string {
 	return strings.TrimSuffix(filepath.Base(rel), filepath.Ext(rel))
 }
 
+// c4Kind maps the mermaid C4 directive to the classic C4 label.
+// C4Dynamic is treated as Code (the fourth C4 level).
+func c4Kind(src string) string {
+	for _, ln := range strings.Split(src, "\n") {
+		t := strings.TrimSpace(strings.TrimRight(ln, "\r"))
+		if t == "" || strings.HasPrefix(t, "%%") {
+			continue
+		}
+		switch {
+		case strings.HasPrefix(t, "C4Context"):
+			return "Context"
+		case strings.HasPrefix(t, "C4Container"):
+			return "Container"
+		case strings.HasPrefix(t, "C4Component"):
+			return "Component"
+		case strings.HasPrefix(t, "C4Code"), strings.HasPrefix(t, "C4Dynamic"):
+			return "Code"
+		case strings.HasPrefix(t, "C4Deployment"):
+			return "Deployment"
+		}
+		break
+	}
+	return ""
+}
+
 // splitC4Levels: .c4 sources hold one C4 diagram per level, separated by
 // a line containing exactly ---. Returns section sources.
 func splitC4Levels(body string) []string {

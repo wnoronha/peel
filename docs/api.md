@@ -28,7 +28,7 @@ Renders one file. Accepts `path` or `file`.
   "levels": [], "outline": [], "backlinks": ["crawling.md"] }
 ```
 
-Titles resolve as frontmatter `title`, then first markdown heading, then filename. Decks fill `slides` with rendered HTML per `---` section. C4 files fill `levels` with `{name, source}` per section and leave `html` empty. `outline` holds `{level, text, line, id}` per heading, or per C4 level. Unknown paths return 404, unsafe paths return 400.
+Titles resolve as frontmatter `title`, then first markdown heading, then filename. Decks fill `slides` with rendered HTML per `---` section. C4 files fill `levels` with `{name, kind, source}` per section (`kind` is Context, Container, Component, Code, or Deployment) and leave `html` empty. `outline` holds `{level, text, line, id}` per heading, or per C4 level. Unknown paths return 404, unsafe paths return 400.
 
 ## `GET /api/feedback?file=overview.md`
 
