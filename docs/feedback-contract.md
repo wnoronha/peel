@@ -32,7 +32,7 @@ Agents read `<root>/.peel/feedback.jsonl`. One JSON object per line. The file is
 - `note` — free text (defaults to `Ink mark` when only ink is sent)  
 - `ink` — optional relative path to an SVG under `.peel/ink/<id>.svg` (never embed SVG in the jsonl line)  
 - `ref` — optional parent note `id` (reply / follow-up ink or text). Reply notes are not open-queue roots  
-- Anchors (optional): `headingId` (markdown), `slide` (1-based deck), `level` + `levelKind` (C4)
+- Anchors (optional): `headingId` (markdown), `slide` (1-based deck), `level` + `levelKind` (C4), `c4Id` + `c4Label` (C4 element — Pele `data-id` and source display name, e.g. `peel` / `"Peel"`)
 
 Create with optional `inkSvg` in the POST body (SVG string, max 200KB). The server writes the file, sets `ink`, and does not persist `inkSvg` in the log. Fetch SVG via `GET /api/feedback/ink?id=<note-id>`.
 

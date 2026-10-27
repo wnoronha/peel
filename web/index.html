@@ -214,7 +214,7 @@
             <div class="meta" x-show="f.ref" x-text="'reply → ' + f.ref"></div>
             <div class="meta" x-show="f.status!=='open' && f.closeNote" x-text="'ack: ' + f.closeNote"></div>
             <div class="meta" x-show="f.status!=='open' && f.closedAt" x-text="f.status + ' ' + timeAgo(f.closedAt)"></div>
-            <div class="meta" x-text="[f.headingId ? '#' + f.headingId : '', f.slide ? 'slide ' + f.slide : '', f.level ? ((f.levelKind || 'level') + ' ' + f.level) : '', (f.startLine || f.endLine) ? ('L' + f.startLine + '–' + f.endLine) : ''].filter(Boolean).join(' · ')"></div>
+            <div class="meta" x-text="[f.headingId ? '#' + f.headingId : '', f.slide ? 'slide ' + f.slide : '', f.level ? ((f.levelKind || 'level') + ' ' + f.level) : '', f.c4Id ? ('c4:' + f.c4Id + (f.c4Label ? ' “' + f.c4Label + '”' : '')) : '', (f.startLine || f.endLine) ? ('L' + f.startLine + '–' + f.endLine) : ''].filter(Boolean).join(' · ')"></div>
           </div>
         </template>
       </div>
@@ -233,6 +233,7 @@
   <div id="composer" x-show="composer.open" :style="`left:${composer.x}px;top:${composer.y}px`" @keydown.escape.window="closeComposer()">
     <button class="cmp-x" @click="closeComposer()" aria-label="Close">×</button>
     <div class="cmp-quote" x-text="composerQuote"></div>
+    <div class="meta" x-show="c4FocusId" style="font-size:12px;margin:0 0 8px" x-text="'C4 node: ' + c4FocusId + (c4FocusLabel ? ' · ' + c4FocusLabel : '')"></div>
     <div class="chips">
       <template x-for="p in presets" :key="p.label">
         <button class="chip" @click="quickComposer(p)" :title="p.label" :aria-label="p.label">

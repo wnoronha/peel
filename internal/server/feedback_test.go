@@ -218,8 +218,9 @@ func TestFeedbackActionPersisted(t *testing.T) {
 func TestFeedbackAnchorsPersisted(t *testing.T) {
 	s := New(t.TempDir())
 	body, _ := json.Marshal(Feedback{
-		File: "c4-peel.c4", Quote: "Annotate", Note: "n",
-		Level: 3, LevelKind: "Component",
+		File: "c4-peel.c4", Quote: "Peel", Note: "n",
+		Level: 1, LevelKind: "Context",
+		C4ID: "peel", C4Label: "Peel",
 	})
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/api/feedback", bytes.NewReader(body))
@@ -238,8 +239,20 @@ func TestFeedbackAnchorsPersisted(t *testing.T) {
 		t.Fatalf("expected 1 note, got %+v", listResp.Feedback)
 	}
 	got := listResp.Feedback[0]
-	if got.Level != 3 || got.LevelKind != "Component" {
+	if got.Level != 1 || got.LevelKind != "Context" {
 		t.Fatalf("expected level anchors, got %+v", got)
+	}
+	if got.C4ID != "peel" || got.C4Label != "Peel" {
+		t.Fatalf("expected c4Id/c4Label, got %+v", got)
+	}
+}
+
+func TestSanitizeC4ID(t *testing.T) {
+	if sanitizeC4ID("reader") != "reader" || sanitizeC4ID("my-node_1") != "my-node_1" {
+		t.Fatal("valid ids rejected")
+	}
+	if sanitizeC4ID("../x") != "" || sanitizeC4ID("a b") != "" {
+		t.Fatal("invalid ids accepted")
 	}
 }
 

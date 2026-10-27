@@ -38,7 +38,7 @@ Returns the **folded open-note set** (notes without a later ack or tombstone). O
 
 Appends one event (`fsync`).
 
-- **note** (default): `file` plus `note` and/or `quote`. Optional `action`, `startLine`/`endLine`, `headingId`, `slide`, `level`, `levelKind`, `ref` (parent note id), `inkSvg` (SVG string → writes `.peel/ink/<id>.svg` and sets `ink`). Ink requires `quote`; ink-only notes get `note: "Ink mark"`.
+- **note** (default): `file` plus `note` and/or `quote`. Optional `action`, `startLine`/`endLine`, `headingId`, `slide`, `level`, `levelKind`, `c4Id`, `c4Label`, `ref` (parent note id), `inkSvg` (SVG string → writes `.peel/ink/<id>.svg` and sets `ink`). Ink requires `quote`; ink-only notes get `note: "Ink mark"`. On C4, prefer `c4Id` (element id) over mashed SVG text quotes.
 - **ack**: `{ "type": "ack", "ref": "<note-id>", "note": "…" }`
 - **tombstone**: `{ "type": "tombstone", "ref": "<note-id>" }`
 

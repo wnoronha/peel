@@ -18,6 +18,7 @@ function peelApp() {
     drawMode: false, inkStrokes: [], inkCurrent: null, inkDrawing: false,
     // Configurable ink stroke; default synth pink (Cyberpunk-style). CSS --color-synth-pink mirrors this.
     inkStroke: '#ff2ecb',
+    c4FocusId: '', c4FocusLabel: '',
     leftOpen: false, rightOpen: false, metaOpen: null,
     goto: { open: false, query: '', idx: 0 },
     gotoHits: [],
@@ -387,6 +388,7 @@ function peelApp() {
       this.selQuote = '';
       this.composer.open = false;
       this.composerNote = '';
+      this.clearC4Focus();
       const c = this.$refs.content;
       c.innerHTML = '';
       if (this.$refs.c4canvas) this.$refs.c4canvas.innerHTML = '';
@@ -543,7 +545,45 @@ function peelApp() {
       if (this.doc?.type !== 'c4') return;
       const g = ev.target && ev.target.closest ? ev.target.closest('.pele-node') : null;
       if (!g || !g.dataset.id) return;
+      // Annotate / draw mode: capture node identity for agents instead of drilling.
+      if (this.drawMode || this.composer.open) {
+        this.setC4FocusFromNode(g);
+        return;
+      }
       if (this.levelIdx + 1 < (this.doc.levels || []).length) this.showLevel(this.levelIdx + 1);
+    },
+
+    clearC4Focus() { this.c4FocusId = ''; this.c4FocusLabel = ''; },
+
+    c4LabelForId(id) {
+      if (!id || !this.doc) return '';
+      const src = ((this.doc.levels || [])[this.levelIdx] || {}).source || this.doc.body || '';
+      const esc = String(id).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const re = new RegExp(
+        '\\b(?:Person|System_Ext|System|ContainerDb|Container_Ext|Container|Component_Ext|Component)\\(\\s*' +
+          esc + '\\s*,\\s*"([^"]+)"'
+      );
+      const m = src.match(re);
+      return m ? m[1] : '';
+    },
+
+    setC4FocusFromNode(g) {
+      if (!g || !g.dataset || !g.dataset.id) return null;
+      const id = g.dataset.id;
+      const label = this.c4LabelForId(id) || '';
+      this.c4FocusId = id;
+      this.c4FocusLabel = label;
+      return { id, label };
+    },
+
+    captureC4FromSelection() {
+      if (this.doc?.type !== 'c4') return null;
+      const sel = window.getSelection();
+      if (!sel || !sel.rangeCount) return null;
+      let el = sel.anchorNode;
+      el = el && el.nodeType === 3 ? el.parentElement : el;
+      const g = el && el.closest ? el.closest('.pele-node') : null;
+      return this.setC4FocusFromNode(g);
     },
 
     scrollToId(id) {
@@ -606,10 +646,15 @@ function peelApp() {
     },
 
     onSelect() {
-      const q = this.selectedQuote();
+      let q = this.selectedQuote();
       const inNote = this.$refs.note && this.$refs.note.contains(document.activeElement);
       const inCmp = document.querySelector('#composer textarea') && document.querySelector('#composer textarea').contains(document.activeElement);
       if (q && !inNote && !inCmp) {
+        const c4n = this.captureC4FromSelection();
+        // SVG text selection on C4 is often mashed («system»Peel…); prefer clean node label.
+        if (c4n && (/[«»]|<<|\n/.test(q) || q.length > 80 || q.replace(/\s+/g, '').length < 2)) {
+          q = c4n.label || c4n.id;
+        }
         this.selQuote = q;
         this.composerQuote = q.length > 60 ? q.slice(0, 57) + '…' : q;
         const sel = window.getSelection();
@@ -631,6 +676,7 @@ function peelApp() {
       this.composerNote = '';
       this.composerAction = '';
       this.clearInkDraft();
+      this.clearC4Focus();
     },
 
     inkPoint(e) {
@@ -663,6 +709,8 @@ function peelApp() {
       const pt = this.inkPoint(e);
       if (!pt) return;
       this.ensureInkHost();
+      const g = e.target && e.target.closest ? e.target.closest('.pele-node') : null;
+      if (g) this.setC4FocusFromNode(g);
       this.inkDrawing = true;
       this.inkCurrent = [pt];
       try { e.target.setPointerCapture && e.target.setPointerCapture(e.pointerId); } catch (_) { /* ignore */ }
@@ -803,9 +851,17 @@ function peelApp() {
       this.$nextTick(() => box && box.focus());
     },
 
-    lineRangeFor(quote) {
-      if (!this.doc || !quote) return [0, 0];
+    lineRangeFor(quote, c4Id) {
+      if (!this.doc) return [0, 0];
       const lines = (this.doc.body || '').split('\n');
+      if (c4Id) {
+        const a = '(' + c4Id + ',';
+        const b = '(' + c4Id + ')';
+        for (let i = 0; i < lines.length; i++) {
+          if (lines[i].includes(a) || lines[i].includes(b)) return [i + 1, i + 1];
+        }
+      }
+      if (!quote) return [0, 0];
       const first = quote.split('\n')[0].slice(0, 80);
       let start = 0;
       for (let i = 0; i < lines.length; i++) {
@@ -814,7 +870,7 @@ function peelApp() {
       return [start, start + (quote.match(/\n/g) || []).length];
     },
 
-    // Stable view anchors alongside quote/lines (deck slide, C4 level, md heading id).
+    // Stable view anchors alongside quote/lines (deck slide, C4 level + node id, md heading id).
     feedbackAnchor() {
       const a = {};
       if (!this.doc) return a;
@@ -825,6 +881,11 @@ function peelApp() {
       if (this.doc.type === 'c4') {
         a.level = this.levelIdx + 1;
         if (this.c4LevelKind) a.levelKind = this.c4LevelKind;
+        if (!this.c4FocusId) this.captureC4FromSelection();
+        if (this.c4FocusId) {
+          a.c4Id = this.c4FocusId;
+          if (this.c4FocusLabel) a.c4Label = this.c4FocusLabel;
+        }
         return a;
       }
       const outline = this.doc.outline || [];
@@ -860,8 +921,13 @@ function peelApp() {
       let note = (this.composerNote || (box ? box.value : '')).trim();
       if (!note && inkSvg) note = 'Ink mark';
       if (!this.selQuote || !note) return;
-      const [sl, el] = this.lineRangeFor(this.selQuote);
-      const body = { type: 'note', file: this.current, quote: this.selQuote, startLine: sl, endLine: el, note, ...this.feedbackAnchor() };
+      const anchor = this.feedbackAnchor();
+      let quote = this.selQuote;
+      if (anchor.c4Id && (/[«»]|<<|\n/.test(quote) || quote.length > 80)) {
+        quote = anchor.c4Label || anchor.c4Id;
+      }
+      const [sl, el] = this.lineRangeFor(quote, anchor.c4Id);
+      const body = { type: 'note', file: this.current, quote, startLine: sl, endLine: el, note, ...anchor };
       if (this.composerAction) body.action = this.composerAction;
       if (inkSvg) body.inkSvg = inkSvg;
       const r = await fetch('/api/feedback', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
@@ -871,6 +937,7 @@ function peelApp() {
         this.composer.open = false;
         this.selQuote = '';
         this.clearInkDraft();
+        this.clearC4Focus();
         window.getSelection().removeAllRanges();
         this.loadFeedback();
         this.refreshTotal();
@@ -1026,14 +1093,21 @@ function peelApp() {
     },
 
     async saveNote() {
-      const q = this.selQuote || this.selectedQuote();
+      let q = this.selQuote || this.selectedQuote();
       const note = (this.noteText || (this.$refs.note ? this.$refs.note.value : '')).trim();
       if (!q || !note) return;
-      const [sl, el] = this.lineRangeFor(q);
-      const body = { type: 'note', file: this.current, quote: q, startLine: sl, endLine: el, note, ...this.feedbackAnchor() };
+      const anchor = this.feedbackAnchor();
+      if (anchor.c4Id && (/[«»]|<<|\n/.test(q) || q.length > 80)) q = anchor.c4Label || anchor.c4Id;
+      const [sl, el] = this.lineRangeFor(q, anchor.c4Id);
+      const body = { type: 'note', file: this.current, quote: q, startLine: sl, endLine: el, note, ...anchor };
       if (this.noteAction) body.action = this.noteAction;
       const r = await fetch('/api/feedback', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-      if (r.ok) { this.noteText = ''; this.noteAction = ''; this.selQuote = ''; window.getSelection().removeAllRanges(); this.loadFeedback(); this.refreshTotal(); }
+      if (r.ok) {
+        this.noteText = ''; this.noteAction = ''; this.selQuote = '';
+        this.clearC4Focus();
+        window.getSelection().removeAllRanges();
+        this.loadFeedback(); this.refreshTotal();
+      }
     },
 
     async reloadFeedback() {

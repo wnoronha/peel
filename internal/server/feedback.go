@@ -35,8 +35,10 @@ type Feedback struct {
 	Slide     int    `json:"slide,omitempty"`     // 1-based deck slide
 	Level     int    `json:"level,omitempty"`     // 1-based C4 level
 	LevelKind string `json:"levelKind,omitempty"` // Context|Container|Component|Code|…
-	Ink       string `json:"ink,omitempty"`    // relative path e.g. .peel/ink/<id>.svg
-	InkSvg    string `json:"inkSvg,omitempty"` // create-only; never persisted in jsonl
+	C4ID      string `json:"c4Id,omitempty"`      // Pele/C4 element id e.g. reader, peel
+	C4Label   string `json:"c4Label,omitempty"`   // display name from source e.g. "Reader"
+	Ink       string `json:"ink,omitempty"`       // relative path e.g. .peel/ink/<id>.svg
+	InkSvg    string `json:"inkSvg,omitempty"`    // create-only; never persisted in jsonl
 }
 
 var allowedActions = map[string]bool{
@@ -66,6 +68,21 @@ func validNoteID(id string) bool {
 		return false
 	}
 	return true
+}
+
+// sanitizeC4ID keeps Pele/C4 element ids (letters, digits, _ -).
+func sanitizeC4ID(id string) string {
+	id = strings.TrimSpace(id)
+	if id == "" || len(id) > 64 {
+		return ""
+	}
+	for _, r := range id {
+		if unicode.IsLetter(r) || unicode.IsDigit(r) || r == '_' || r == '-' {
+			continue
+		}
+		return ""
+	}
+	return id
 }
 
 func validateInkSVG(svg string) (string, bool) {
@@ -229,6 +246,14 @@ func (s *Server) handleFeedbackAdd(w http.ResponseWriter, r *http.Request) {
 			}
 			fb.Ref = parentRef // validated against log under lock below
 		}
+		fb.C4ID = sanitizeC4ID(fb.C4ID)
+		fb.C4Label = strings.TrimSpace(fb.C4Label)
+		if len(fb.C4Label) > 200 {
+			fb.C4Label = fb.C4Label[:200]
+		}
+		if fb.C4ID == "" {
+			fb.C4Label = ""
+		}
 	case FeedbackAck, FeedbackTombstone:
 		if strings.TrimSpace(fb.Ref) == "" {
 			http.Error(w, "missing ref", http.StatusBadRequest)
@@ -244,6 +269,8 @@ func (s *Server) handleFeedbackAdd(w http.ResponseWriter, r *http.Request) {
 		fb.Slide = 0
 		fb.Level = 0
 		fb.LevelKind = ""
+		fb.C4ID = ""
+		fb.C4Label = ""
 		inkSvg = ""
 		if t == FeedbackTombstone {
 			fb.Note = ""
