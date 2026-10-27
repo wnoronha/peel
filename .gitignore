@@ -1,6 +1,6 @@
 # Binaries
-peel
-peel.exe
+/peel
+/peel.exe
 *.exe
 
 # Peel feedback data

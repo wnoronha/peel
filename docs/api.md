@@ -1,6 +1,18 @@
 # API reference
 
-Base URL is the serving address, for example `http://127.0.0.1:18124/`. Every response is JSON. Error bodies are plain text with an HTTP status.
+Base URL is the serving address, for example `http://127.0.0.1:18124/`. REST endpoints return JSON, while live updates use Server-Sent Events (`GET /events`). Error bodies are plain text with an HTTP status.
+
+## Endpoints overview
+
+| Method & Path | Description | Format |
+|---|---|---|
+| `GET /api/files` | List all markdown and C4 files | JSON |
+| `GET /api/doc?path=...` | Render document, slides, or C4 levels | JSON |
+| `GET /api/feedback` | Folded open notes or full event log (`all=1`) | JSON |
+| `POST /api/feedback` | Append note, ack, or tombstone | JSON |
+| `DELETE /api/feedback?id=...` | Tombstone a note | JSON |
+| `GET /events` | Live stream for file reloads & feedback events | SSE (`text/event-stream`) |
+| `GET /healthz` | Health check probe (`ok`) | Text |
 
 ## `GET /api/files`
 
@@ -50,7 +62,14 @@ Appends a **tombstone** for an open note (does not rewrite the log). Returns `{o
 
 ## `GET /events`
 
-Server-sent events. Payloads are `{type: "reload", path}` when a file under the root changes, plus `: hb` heartbeats every 20 seconds.
+Server-sent events (`text/event-stream`). Comment heartbeats (`: hb`). Each `data:` line is JSON:
+
+| `type` | When |
+|--------|------|
+| `reload` | `.md` / `.c4` under the root changes |
+| `feedback` | After a feedback append (note, ack, or tombstone) — `{ "type":"feedback", "event": { … } }` |
+
+Agents: prefer `skills/peel/peel_api.py wait-note` / `pair` over raw curl.
 
 ## `GET /healthz`
 

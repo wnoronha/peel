@@ -1035,6 +1035,9 @@ function peelApp() {
           if (m.type === 'reload') {
             this.loadFiles();
             if (m.path === this.current) this.openFile(this.current);
+          } else if (m.type === 'feedback') {
+            this.reloadFeedback();
+            this.refreshTotal();
           }
         } catch (_) { /* ignore */ }
       };

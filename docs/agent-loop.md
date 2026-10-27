@@ -1,6 +1,8 @@
 # Agent review loop
 
-How a coding agent should work with peel’s feedback log. Humans use the browser; agents use the file (or the API).
+How a coding agent should work with peel’s feedback log. Humans use the browser; agents use the API via the skill script (or the file as fallback).
+
+Agent skill (portable): [`skills/peel/SKILL.md`](../skills/peel/SKILL.md). In Cursor run **`/peel`**. Prefer **`skills/peel/peel_api.py`** for all HTTP/SSE so one shell approval covers every subcommand — do not invent ad-hoc curls.
 
 ## Setup
 
@@ -12,7 +14,12 @@ Log path: `docs/.peel/feedback.jsonl` (gitignored). Contract: [[feedback-contrac
 
 ## Wake up
 
-Watch **mtime** or **tail** the jsonl. Polling `GET /api/feedback?all=1` also works. Prefer the file for local agents — no SSE required for feedback.
+**Primary (default: `pair`):** `skills/peel/peel_api.py pair` or `wait-note` (SSE with poll fallback). On connect, `open` for catch-up.
+
+- **`pair` (default / long-lived process):** Recommended default under shell approval workflows (`skills/peel/peel_api.py pair --timeout 600`). Runs health check, lists open notes for catch-up, and continuously streams new notes to stdout in a single process.
+- **`wait-note` (discrete turn-based):** Blocks until **one** new root note arrives, prints its JSON, and exits (code 0, or 124 on timeout). Used when an agent framework requires discrete per-turn tool calls: wait for one note → execute edit → ack → invoke `wait-note --since-id <id>` again. Supports `--since-id <id>` and `--file <path>` filtering.
+
+**Fallback:** watch mtime / `tail -F` the jsonl, or poll `GET /api/feedback?all=1`.
 
 ## Handle a note
 
@@ -29,7 +36,7 @@ Content-Type: application/json
 {"type":"ack","ref":"<note-id>","note":"updated the stale figure"}
 ```
 
-6. Doc edits trigger SSE reload in open browsers. The note moves to **Acked** in the drawer.
+6. Doc edits trigger SSE `reload` in open browsers. Feedback writes also emit SSE `feedback` so the panel (and `wait-note`) wake without polling. The note moves to **Acked** in the drawer.
 
 ## Do not
 

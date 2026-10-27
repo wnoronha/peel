@@ -216,9 +216,18 @@ func (s *Server) handleFeedbackAdd(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "write", 500)
 		return
 	}
+	s.emitFeedback(fb)
 	writeJSON(w, map[string]any{"ok": true, "id": fb.ID, "type": fb.Type})
 }
 
+// emitFeedback wakes SSE clients (agents + browser Feedback panel).
+func (s *Server) emitFeedback(fb Feedback) {
+	msg, err := json.Marshal(map[string]any{"type": "feedback", "event": fb})
+	if err != nil {
+		return
+	}
+	s.broadcast(string(msg))
+}
 
 func (s *Server) handleFeedbackDelete(w http.ResponseWriter, r *http.Request) {
 	id := r.URL.Query().Get("id")
@@ -248,6 +257,7 @@ func (s *Server) handleFeedbackDelete(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "write", 500)
 				return
 			}
+			s.emitFeedback(fb)
 			writeJSON(w, map[string]any{"ok": true, "deleted": true})
 			return
 		}
