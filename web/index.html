@@ -21,6 +21,10 @@
   <symbol id="lucide-component" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15.536 11.293a1 1 0 0 0 0 1.414l2.376 2.377a1 1 0 0 0 1.414 0l2.377-2.377a1 1 0 0 0 0-1.414l-2.377-2.377a1 1 0 0 0-1.414 0z"/><path d="M2.297 11.293a1 1 0 0 0 0 1.414l2.377 2.377a1 1 0 0 0 1.414 0l2.377-2.377a1 1 0 0 0 0-1.414L6.088 8.916a1 1 0 0 0-1.414 0z"/><path d="M8.916 17.912a1 1 0 0 0 0 1.415l2.377 2.376a1 1 0 0 0 1.414 0l2.377-2.376a1 1 0 0 0 0-1.415l-2.377-2.376a1 1 0 0 0-1.414 0z"/><path d="M8.916 4.674a1 1 0 0 0 0 1.414l2.377 2.376a1 1 0 0 0 1.414 0l2.377-2.376a1 1 0 0 0 0-1.414l-2.377-2.377a1 1 0 0 0-1.414 0z"/></symbol>
   <symbol id="lucide-code-xml" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 16 4-4-4-4"/><path d="m6 8-4 4 4 4"/><path d="m14.5 4-5 16"/></symbol>
   <symbol id="lucide-server" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="8" x="2" y="2" rx="2" ry="2"/><rect width="20" height="8" x="2" y="14" rx="2" ry="2"/><line x1="6" x2="6.01" y1="6" y2="6"/><line x1="6" x2="6.01" y1="18" y2="18"/></symbol>
+  <symbol id="lucide-circle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/></symbol>
+  <symbol id="lucide-circle-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></symbol>
+  <symbol id="lucide-circle-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></symbol>
+  <symbol id="lucide-list" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h.01"/><path d="M3 18h.01"/><path d="M3 6h.01"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M8 6h13"/></symbol>
 </svg>
 <div data-component="container" x-data="peelApp">
   <header data-component="top">
@@ -153,14 +157,27 @@
     <aside data-component="notes" x-ref="notes" x-show="rightOpen">
       <div class="panel-body">
       <div data-component="section-head"><span x-text="`Feedback (${fbStatusCount('open')})`">Feedback</span><button class="mini-btn" @click="toggleRight()" title="Close feedback panel ( ] )" aria-label="Close feedback panel">×</button></div>
-      <div data-component="tabs" role="tablist" style="margin-bottom:8px">
-        <button :class="{active: !fbAll}" @click="loadFeedback()">This file</button><button :class="{active: fbAll}" @click="loadAllFeedback()">All files</button>
+      <div data-component="tabs" class="fb-scope-tabs" role="tablist" style="margin-bottom:8px">
+        <button type="button" :class="{active: !fbAll}" @click="loadFeedback()">This file</button>
+        <button type="button" :class="{active: fbAll}" @click="loadAllFeedback()">All files</button>
       </div>
-      <div data-component="tabs" role="tablist" aria-label="Note status" style="margin-bottom:12px">
-        <button type="button" :class="{active: fbStatus==='open'}" @click="setFbStatus('open')" x-text="`Open (${fbStatusCount('open')})`">Open</button>
-        <button type="button" :class="{active: fbStatus==='acked'}" @click="setFbStatus('acked')" x-text="`Acked (${fbStatusCount('acked')})`">Acked</button>
-        <button type="button" :class="{active: fbStatus==='dismissed'}" @click="setFbStatus('dismissed')" x-text="`Dismissed (${fbStatusCount('dismissed')})`">Dismissed</button>
-        <button type="button" :class="{active: fbStatus==='all'}" @click="setFbStatus('all')" x-text="`All (${fbStatusCount('all')})`">All</button>
+      <div class="fb-status-tabs" role="tablist" aria-label="Note status">
+        <button type="button" :class="{active: fbStatus==='open'}" @click="setFbStatus('open')" :title="'Open (' + fbStatusCount('open') + ')'" :aria-label="'Open notes, ' + fbStatusCount('open')">
+          <svg class="fb-tab-ico" aria-hidden="true"><use href="#lucide-circle"></use></svg>
+          <span class="fb-tab-n" x-text="fbStatusCount('open')">0</span>
+        </button>
+        <button type="button" :class="{active: fbStatus==='acked'}" @click="setFbStatus('acked')" :title="'Acked (' + fbStatusCount('acked') + ')'" :aria-label="'Acked notes, ' + fbStatusCount('acked')">
+          <svg class="fb-tab-ico" aria-hidden="true"><use href="#lucide-circle-check"></use></svg>
+          <span class="fb-tab-n" x-text="fbStatusCount('acked')">0</span>
+        </button>
+        <button type="button" :class="{active: fbStatus==='dismissed'}" @click="setFbStatus('dismissed')" :title="'Dismissed (' + fbStatusCount('dismissed') + ')'" :aria-label="'Dismissed notes, ' + fbStatusCount('dismissed')">
+          <svg class="fb-tab-ico" aria-hidden="true"><use href="#lucide-circle-x"></use></svg>
+          <span class="fb-tab-n" x-text="fbStatusCount('dismissed')">0</span>
+        </button>
+        <button type="button" :class="{active: fbStatus==='all'}" @click="setFbStatus('all')" :title="'All (' + fbStatusCount('all') + ')'" :aria-label="'All notes, ' + fbStatusCount('all')">
+          <svg class="fb-tab-ico" aria-hidden="true"><use href="#lucide-list"></use></svg>
+          <span class="fb-tab-n" x-text="fbStatusCount('all')">0</span>
+        </button>
       </div>
       <div data-slot="card">
         <div id="selPreview" x-show="selQuote" x-text="selQuote.slice(0, 500)"></div>

@@ -85,14 +85,21 @@ body[data-page="peel"] a[data-slot="cta-button"]:hover,body[data-page="peel"] a.
 .meta-menu a:hover{background:var(--color-background-weak);color:var(--color-text-strong)}
 .meta-menu .weak{display:block;padding:5px 8px;font-size:14px}
 [data-component="columns"]{display:block;border-top:1px solid var(--color-border-weak);min-height:calc(100vh - var(--header-h))}
-[data-component="files"]{position:fixed;top:var(--header-h);bottom:0;left:0;width:min(320px,90vw);z-index:20;background:var(--color-background);border-right:1px solid var(--color-border-weak);padding:24px;overflow-y:auto;overflow-x:hidden}
+[data-component="files"]{position:fixed;top:var(--header-h);bottom:0;left:0;width:33vw;max-width:100%;z-index:20;background:var(--color-background);border-right:1px solid var(--color-border-weak);padding:16px;overflow-y:auto;overflow-x:hidden}
 [data-component="content"]{padding:24px 32px;min-width:0;max-width:none}
-[data-component="notes"]{position:fixed;top:var(--header-h);bottom:0;right:0;width:min(340px,92vw);z-index:20;background:var(--color-background);border-left:1px solid var(--color-border-weak);padding:24px;overflow-y:auto;overflow-x:hidden}
+[data-component="notes"]{position:fixed;top:var(--header-h);bottom:0;right:0;width:33vw;max-width:100%;z-index:20;background:var(--color-background);border-left:1px solid var(--color-border-weak);padding:16px;overflow-y:auto;overflow-x:hidden}
 [data-component="section-head"]{display:flex;justify-content:space-between;align-items:center;margin:20px 0 12px;color:var(--color-text-strong);font-weight:700;font-size:16px}
 [data-component="section-head"]:first-child{margin-top:0}
 [data-component="tabs"]{display:inline-flex;border:0;border-bottom:1px solid var(--color-border-weak);border-radius:var(--radius-none);overflow:visible;gap:0}
-[data-component="tabs"] button{background:transparent;border:0;border-bottom:2px solid transparent;margin-bottom:-1px;color:var(--color-text-weak);font:inherit;font-size:16px;font-weight:500;padding:8px 16px;cursor:pointer;border-radius:var(--radius-none)}
+[data-component="tabs"] button{background:transparent;border:0;border-bottom:2px solid transparent;margin-bottom:-1px;color:var(--color-text-weak);font:inherit;font-size:14px;font-weight:500;padding:6px 10px;cursor:pointer;border-radius:var(--radius-none)}
 [data-component="tabs"] button.active{background:transparent;color:var(--color-text-strong);border-bottom-color:var(--color-ash)}
+.fb-scope-tabs{width:100%}
+.fb-status-tabs{display:flex;gap:2px;margin:0 0 12px;padding:0 0 8px;border-bottom:1px solid var(--color-border-weak)}
+.fb-status-tabs button{flex:1;display:inline-flex;align-items:center;justify-content:center;gap:4px;background:transparent;border:0;border-bottom:2px solid transparent;margin-bottom:-9px;padding:6px 4px;cursor:pointer;color:var(--color-text-weak);font:inherit;font-size:12px;border-radius:var(--radius-none)}
+.fb-status-tabs button:hover{color:var(--color-text-strong)}
+.fb-status-tabs button.active{color:var(--color-text-strong);border-bottom-color:var(--color-ash)}
+.fb-tab-ico{width:14px;height:14px;display:block;flex-shrink:0}
+.fb-tab-n{font-variant-numeric:tabular-nums;line-height:1}
 #filter{width:100%;font:inherit;background:var(--color-background-weak);border:1px solid var(--color-border-weak);border-radius:var(--radius-sm);padding:8px 12px;height:40px;color:var(--color-text-strong);margin-bottom:12px}
 #filter:focus{outline:none;background:var(--color-background);border-color:var(--color-text-strong)}
 table[data-component="rankings"]{width:100%;table-layout:fixed;border-collapse:collapse;font-size:14px}
