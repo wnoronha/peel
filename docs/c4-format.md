@@ -26,7 +26,7 @@ The first `title <name>` line in a block names the tab, the breadcrumb, and the 
 
 ## Diagram types
 
-Each block is one mermaid C4 diagram, rendered by the vendored pele bundle: `C4Context`, `C4Container`, `C4Component`, or `C4Dynamic`. `%%` comment lines are allowed. Relationship lines that pele cannot parse fail that block with a `diagram error` message, so keep one relation per line and avoid back-edges between the same pair.
+Each block is one mermaid C4 diagram, rendered by the vendored pele bundle: `C4Context`, `C4Container`, `C4Component`, `C4Dynamic`, or `C4Code`. The UI maps those prefixes to level-kind icons. `%%` comment lines are allowed. Relationship lines that pele cannot parse fail that block with a `diagram error` message, so keep one relation per line and avoid back-edges between the same pair.
 
 ## Limits
 

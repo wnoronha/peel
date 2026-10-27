@@ -54,7 +54,7 @@ function peelApp() {
       if (l.kind) return l.kind;
       const m = String(l.source || '').match(/^\s*(C4Context|C4Container|C4Component|C4Code|C4Dynamic|C4Deployment)\b/m);
       if (!m) return '';
-      return ({ C4Context: 'Context', C4Container: 'Container', C4Component: 'Component', C4Code: 'Code', C4Dynamic: 'Code', C4Deployment: 'Deployment' })[m[1]] || '';
+      return ({ C4Context: 'Context', C4Container: 'Container', C4Component: 'Component', C4Code: 'Code', C4Dynamic: 'Dynamic', C4Deployment: 'Deployment' })[m[1]] || '';
     },
     c4KindIcon(l) {
       const k = l ? this.c4Kind(l) : this.c4LevelKind;
@@ -372,11 +372,13 @@ function peelApp() {
           });
           c.appendChild(div);
         });
+        wrapTables(c);
         mountDiagrams(c);
         this.showSlide(start, false);
       } else {
         c.innerHTML = d.html;
         this.slideTitle = '';
+        wrapTables(c);
         mountDiagrams(c);
       }
       this.setupSpy();
@@ -862,6 +864,16 @@ function peelApp() {
       };
     },
   };
+}
+
+function wrapTables(root) {
+  root.querySelectorAll('table').forEach(table => {
+    if (table.closest('.table-scroll')) return;
+    const wrap = document.createElement('div');
+    wrap.className = 'table-scroll';
+    table.replaceWith(wrap);
+    wrap.appendChild(table);
+  });
 }
 
 function mountDiagrams(root) {

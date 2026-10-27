@@ -1,19 +1,38 @@
 # Annotate a doc
 
-## Capture a quote
+Select text in the reader (docs, decks, or C4 labels). Peel captures the quote, optional anchors, and your note into an append-only log agents can finish.
 
-Drag-select any text in the center column, including labels inside rendered diagrams. A composer appears by the selection. If you click elsewhere first, the selection is kept and the sidebar form holds the quote instead.
+## Capture
 
-## Pick a quick action
+1. Drag-select text — a composer appears near the selection.
+2. Pick a chip (**Fix this**, **Explain this**, **Add example**, **Simplify this**, **Question**) or type freely.
+3. Press `⌘↵` / `Ctrl↵` or click **Save**.
 
-The form offers five presets: **Explain this**, **Fix this**, **Add example**, **Simplify this**, **Question**. Only icons show until you hover a chip. Clicking one prefixes your note, for example `Add example: `. Add detail after the colon, then click **Save**. Saving needs both a quote and a note.
+Saving needs a quote and a note. Closing the composer without save drops the draft.
 
-## Review the list
+## Review
 
-Click **Feedback** in the top bar to open the right panel across all files. The **This file** tab filters to the open doc. Each entry shows its age, file, note, quote, and source lines. Click an entry to jump to its quoted text. Click `×` to delete it.
+Open **Feedback** (`]`). Tabs:
 
-## Feed the agent loop
+| Tab | Meaning |
+|---|---|
+| **Open** | Active notes — marks in the doc |
+| **Acked** | Agent finished (`type: ack`) |
+| **Dismissed** | You discarded (`type: tombstone`) |
+| **All** | History for the current scope |
 
-Every save appends one JSON object per line to `<root>/.peel/feedback.jsonl` with `id`, `ts`, `file`, `quote`, `startLine`, `endLine`, and `note`. Your agent or IDE watches that file. The exact contract is in `feedback-contract.md`.
+**This file** vs all files filters the list. Click a row to jump to the quote. Click `×` to dismiss (tombstone), not hard-delete.
+
+## Agent side
+
+Each save appends one JSON line under `<root>/.peel/feedback.jsonl`. Agents should edit sources, then `POST` an `ack` with `ref` set to the note id. Playbook: [[agent-loop]]. Contract: [[feedback-contract]].
+
+## Anchors
+
+Notes may carry `headingId`, `slide`, `level`, `levelKind`, and line ranges so agents can find the quote after edits. Prefer matching on `quote` text when lines drift.
+
+## Screenshots
 
 ![Annotate panel](assets/annotate-panel.png)
+
+(Regenerate screenshots after UI polish — the drawer status tabs are newer than this asset.)

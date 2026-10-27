@@ -21,7 +21,7 @@ Open `http://127.0.0.1:18124/?file=architecture.md`.
 ## Features
 
 - **Format support**: Serves `*.md` docs, Marp slide stacks (`marp: true`), and multi-level `*.c4` diagrams.
-- **C4 Architecture viewer**: `*.c4` files separate levels with `---`. Supports `C4Context`, `C4Container`, `C4Component`, and `C4Dynamic`. Includes level tabs, breadcrumbs, zoom controls, and click-a-box drill-down.
+- **C4 Architecture viewer**: `*.c4` files separate levels with `---`. Supports `C4Context`, `C4Container`, `C4Component`, `C4Dynamic`, and `C4Code`. Level dropdown with kind icons, breadcrumbs, zoom, and click-a-box drill-down. Dogfood model: `docs/c4-peel.c4`.
 - **Embedded engine**: Single Go binary embedding all frontend assets. Markdown is parsed server-side via Goldmark; diagrams are rendered client-side via vendored Pele.
 - **Graph & Links**: Resolves `[[wikilinks]]` by basename (anchors and `|labels` supported) and standard Markdown links to local `.md`/`.c4` files (relative to the current doc). External `http(s)` links open in a new tab. Computes backlinks and link counts across both forms.
 - **Real-time live reload**: File watcher pushes disk modifications over Server-Sent Events (`/events`) to reload docs instantly.

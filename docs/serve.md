@@ -9,7 +9,7 @@ go build -o peel .
 ./peel --dir ./docs --port 18124 --host 127.0.0.1
 ```
 
-With no `--dir`, peel serves `./docs` when it exists, else the working directory. A bare path works too: `./peel /some/docs --port 18200`. Open the printed address and add `?file=overview.md` to land on a page.
+With no `--dir`, peel serves `./docs` when it exists, else the working directory. A bare path works too: `./peel /some/docs --port 18200`. Open the printed address; add `?file=index.md` (or [[deck-peel-tour]]) to land on a page.
 
 ## Restart after a code change
 

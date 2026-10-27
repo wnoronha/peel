@@ -2,6 +2,8 @@
 
 Peel is one Go binary that serves markdown as a readable site. The whole UI ships inside the binary, so deploying peel means copying one file.
 
+Product story and jobs: [[peel-overview]], [[use-cases]]. Visual model: [[c4-peel]].
+
 ## Server
 
 `main.go` parses `--dir`, `--port`, and `--host`, then embeds `web/` with `go:embed` and serves it as static files with `Cache-Control: no-store`. `internal/server` holds the JSON API, the SSE channel, and a recursive `fsnotify` watcher. Any write under the docs root broadcasts `{type: "reload", path}` on `/events`. The browser refreshes the file list on every event and re-opens the open doc when its path matches.

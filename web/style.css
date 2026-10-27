@@ -126,6 +126,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
 #content code{font-family:inherit}
 #content p code{background:var(--color-background-weak);border:1px solid var(--color-border-weak);padding:1px 6px;border-radius:var(--radius-sm)}
 #content blockquote{border-left:2px solid var(--color-border);margin:0;padding:4px 16px;color:var(--color-text-weak)}
+#content .table-scroll{max-width:100%;overflow-x:auto}
 #content table{border-collapse:collapse;width:100%;font-size:14px;line-height:1.6}
 #content th,#content td{border:1px solid var(--color-border-weak);padding:8px 12px;text-align:left}
 #content th{color:var(--color-text-strong);font-weight:500}
@@ -134,9 +135,9 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
 #content a.external-link{color:var(--color-text-strong)}
 pre.diagram{background:transparent}
 .pele-diagram{border:1px solid var(--color-border-weak);border-radius:var(--radius-none);padding:16px;background:var(--color-background);--pele-bg:transparent;--pele-fg:var(--color-text-strong);--pele-muted:var(--color-text-weak);--pele-line:var(--color-text-weak);--pele-surface:var(--color-background-weak)}
-.slide{border:1px solid var(--color-border-weak);border-radius:var(--radius-none);padding:32px;margin:0 0 16px;background:var(--color-background);scroll-margin-top:120px;transition:opacity .2s;cursor:pointer}
-.slide.active{border-color:var(--color-text-strong)}
-.slide:not(.active){padding:0;margin:0 0 8px;opacity:1;background:transparent}
+.slide{border:1px solid var(--color-border-weak);border-radius:var(--radius-none);padding:32px;margin:0 0 16px;background:var(--color-background);scroll-margin-top:120px;transition:opacity .2s;cursor:pointer;--slide-fold:calc(100dvh - var(--header-h) - 140px)}
+.slide.active{border-color:var(--color-text-strong);min-height:min(560px,var(--slide-fold))}
+.slide:not(.active){padding:0;margin:0 0 8px;opacity:1;background:transparent;min-height:0}
 .slide:not(.active):hover{border-color:var(--color-text-weak)}
 .slide:not(.active) > :not(.strip){display:none}
 .slide > .strip{display:none}
@@ -189,7 +190,6 @@ table[data-component="rankings"] td.type{text-align:center;color:var(--color-tex
 [data-component="columns"] > *{min-width:0}
 .pele-diagram{max-width:100%;overflow-x:auto}
 .pele-diagram svg{max-width:100%;height:auto;display:block;margin:0 auto}
-#content table{display:block;max-width:100%;overflow-x:auto}
 #content pre{max-width:100%}
 #content img{max-width:100%;height:auto}
 /* annotation marks — semantic ramp (in-product) */

@@ -1,26 +1,34 @@
-# Peel docs
+# Peel
 
-Peel serves markdown as a readable site and collects notes for agents. Start with [[read]] or [[peel-overview]].
+One Go binary that turns a folder of markdown into a readable site — with slide decks, C4 models, and an annotation loop agents can actually consume.
 
-## Where to start
+Open this folder with peel and you are dogfooding the product.
 
-| You are | Open |
+```sh
+./peel --dir ./docs --port 18124
+```
+
+## Start here
+
+| You want | Open |
 |---|---|
-| New here, five minutes | [[read]] |
-| Visual thinker | [[c4-peel]] then [[deck-peel-tour]] |
-| Engineer, full detail | [[architecture]] |
-| Reviewing the format specs | [[c4-format]], [[feedback-contract]] |
+| Five-minute tour | [[deck-peel-tour]] |
+| Why peel exists | [[use-cases]] |
+| Architecture as a model | [[c4-peel]] |
+| Agent review loop | [[agent-loop]] |
+| Hands-on first note | [[read]] |
 
-## Map
+## Modes
 
-- Read: [[read]], [[annotate]], [[view-decks]], [[view-c4]]
-- Build: [[architecture]], [[api]], [[serve]]
-- Model and tour: [[c4-peel]], [[deck-peel-tour]], [[peel-overview]]
+- **Docs** — rendered markdown, outline, backlinks, Goto Anything (`Ctrl/Cmd-P`)
+- **Decks** — `marp: true` files split on `---` into focusable slides · [[view-decks]]
+- **C4** — `*.c4` levels with kind icons, zoom, drill-down · [[view-c4]]
+- **Annotate** — select text → note → `.peel/feedback.jsonl` · [[annotate]]
 
-## Markdown links
+## Specs (deep lane)
 
-Wikilinks and standard Markdown links both navigate inside Peel. Relative paths resolve from the current file. External URLs open in a new tab.
+[[feedback-contract]] · [[api]] · [[c4-format]] · [[architecture]] · [[serve]]
 
-- [Peel overview](./peel-overview.md)
-- [Architecture](./architecture.md#server)
-- [Goldmark](https://github.com/yuin/goldmark)
+## Showcase tip
+
+Walk a visitor through [[deck-peel-tour]], then [[c4-peel]], then leave one open note on [[use-cases]] and show the Feedback drawer (open / acked / dismissed). That is the product in three minutes.

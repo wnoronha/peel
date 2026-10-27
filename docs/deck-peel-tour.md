@@ -5,17 +5,36 @@ title: Peel in five minutes
 
 # Peel in five minutes
 
-One binary. Docs, decks, and C4 models. Notes flow to agents.
+One binary. Docs, decks, and C4.
+Notes that agents can finish.
 
 ---
 
-## What it serves
+## The problem
 
-- `*.md` files become docs.
-- `marp: true` files become slide decks.
-- `*.c4` files become C4 models.
+Docs rot. Reviews live in chat.
+Agents can edit files — they need a queue with quotes, not a screenshot in Slack.
 
-See [[peel-overview]].
+---
+
+## The bet
+
+Put the queue **next to the doc**.
+Select → note → JSONL → agent → ack → reload.
+
+See [[agent-loop]].
+
+---
+
+## Three modes, one binary
+
+| Mode | Source | Feel |
+|---|---|---|
+| Doc | `*.md` | Read, link, search |
+| Deck | `marp: true` | Present with ←/→ |
+| C4 | `*.c4` | Levels, zoom, drill |
+
+Hub: [[index]] · Model: [[c4-peel]]
 
 ---
 
@@ -23,33 +42,63 @@ See [[peel-overview]].
 
 ```mermaid
 flowchart LR
-  S[select text] --> N[write note]
-  N --> J[feedback.jsonl]
-  J --> A[agent acts]
-  A --> R[browser reloads]
+  S[Select] --> N[Note]
+  N --> L[JSONL]
+  L --> A[Agent]
+  A --> E[Edit]
+  E --> R[Reload]
+  A --> K[Ack]
 ```
 
----
-
-## Modes
-
-Docs for reading, decks for presenting, C4 for architecture.
-
-- Model: [[c4-peel]]
-- Hub: [[index]]
+Full contract: [[feedback-contract]].
 
 ---
 
-## Notes carry the work
+## Notes are events
 
 ```json
-{ "file": "overview.md", "quote": "...", "note": "Fix this: ..." }
+{ "type": "note", "action": "fix", "quote": "…", "note": "…" }
+{ "type": "ack", "ref": "<id>", "note": "patched" }
+{ "type": "tombstone", "ref": "<id>" }
 ```
 
-One object per line in `.peel/feedback.jsonl`. Agents watch the file.
+Open / acked / dismissed — same drawer.
 
 ---
 
-## Keys
+## Jobs peel wins
 
-Arrows move slides and levels. `Ctrl-P` opens Goto Anything. `[` and `]` toggle panels. `⌘↵` saves the composer.
+- Architecture review on a C4 model
+- Agent doc-fix loop while reading
+- Onboarding via a deck, deep-links into specs
+- Spec + implementation annotated together
+
+Stories: [[use-cases]].
+
+---
+
+## Keys worth memorizing
+
+| Key | Action |
+|---|---|
+| `Ctrl/Cmd-P` | Goto Anything |
+| `[` `]` | Files / Feedback |
+| `←` `→` | Slide or C4 level |
+| `⌘↵` | Save composer |
+
+---
+
+## Try it on this folder
+
+```sh
+./peel --dir ./docs --port 18124
+```
+
+Leave a note on the next slide. Watch Feedback.
+
+---
+
+## Next
+
+Open [[c4-peel]] and click through levels.
+Then [[agent-loop]] if you wire an agent today.

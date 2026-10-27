@@ -1,42 +1,39 @@
 # Read docs with peel
 
-You will serve a docs folder, read a page, and save a first note. You need Go and a folder of markdown files.
+Serve a folder, open a page, leave a first note. You need Go and a markdown tree.
 
-## Serve the fixture docs
-
-First, build the binary:
+## Serve this dogfood folder
 
 ```sh
 go build -o peel .
+./peel --dir ./docs --port 18124
 ```
 
-Next, serve the bundled fixture:
+Open `http://127.0.0.1:18124/`. You get Files, the hub [[index]], and empty side panels until you annotate.
+
+Fixture alternative (search-domain sample):
 
 ```sh
 ./peel --dir fixtures/google-search --port 18124
 ```
 
-Open `http://127.0.0.1:18124/`. You see the file list, the first doc, and empty side panels.
-
 ## Read a page
 
-Click `overview.md` in the file list. The doc renders in the center column. Press `Ctrl-P` (or `Cmd-P`) to open Goto Anything, type a few letters, and press Enter to open another file.
+Click a file or press `Ctrl-P` / `Cmd-P` (Goto Anything). Use **Files**, **Decks**, or **C4** in the top bar for the left drawer tabs.
 
-Click **Files**, **Decks**, or **C4** in the top bar to open the left panel on that tab.
+Worth opening once: [[use-cases]], [[deck-peel-tour]], [[c4-peel]].
 
 ## Save a first note
 
-Now, do the following:
+1. Drag-select a sentence.
+2. Chip **Fix this** (or type your own note).
+3. `⌘↵` / **Save**.
+4. Open **Feedback** — the note is **Open**.
 
-1. Drag-select a sentence in the doc. A small composer pops up near the selection.
-2. Pick a quick action, for example **Fix this**. The box fills with `Fix this: `.
-3. Type the problem after the colon.
-4. Press `⌘↵` (or `Ctrl↵`) or click **Save**.
-
-Open the **Feedback** link in the top bar. Your note is listed there. The same entry was appended to `fixtures/google-search/.peel/feedback.jsonl`:
+It was appended to `docs/.peel/feedback.jsonl` (or the fixture’s `.peel/`):
 
 ```sh
-tail -n 1 fixtures/google-search/.peel/feedback.jsonl
+tail -n 1 docs/.peel/feedback.jsonl
 ```
 
-You now have a running loop: select text, save a note, and the JSONL file carries it to your agent. `annotate.md` covers the whole flow.
+Next: [[annotate]] for the full UI, [[agent-loop]] to wire an agent.

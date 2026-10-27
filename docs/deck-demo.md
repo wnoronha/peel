@@ -5,7 +5,8 @@ title: Demo deck
 
 # Demo deck
 
-First slide — architecture at a glance.
+Minimal slide stack for smoke-testing deck mode.
+For the real pitch, use [[deck-peel-tour]] or [[deck-use-cases]].
 
 ---
 
@@ -13,16 +14,17 @@ First slide — architecture at a glance.
 
 ```mermaid
 sequenceDiagram
-  participant A as Agent
+  participant R as Reader
   participant P as peel
-  A->>P: write docs/
-  P-->>A: feedback.jsonl
+  participant A as Agent
+  R->>P: note
+  A->>P: ack
+  A->>P: edit sources
+  P-->>R: SSE reload
 ```
 
 ---
 
-## Bottlenecks
+## Done
 
-- Rendering
-- Watching
-- Annotating
+Open [[annotate]] and leave a note on this line.
