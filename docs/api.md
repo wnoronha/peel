@@ -13,7 +13,9 @@ Agents should prefer [`skills/peel/peel_api.py`](../skills/peel/peel_api.py) ove
 | `GET /api/feedback` | Folded open notes or raw log (`all=1`) | JSON |
 | `POST /api/feedback` | Append note, ack, or tombstone | JSON |
 | `DELETE /api/feedback?id=` | Tombstone a note | JSON |
-| `GET /events` | Live stream: file reloads + feedback | SSE |
+| `GET /api/agent` | Ephemeral agent presence (`working` \| `idle`) | JSON |
+| `POST /api/agent` | Set presence — pulses logo when `working` | JSON |
+| `GET /events` | Live stream: reloads, feedback, agent | SSE |
 | `GET /healthz` | Health probe (`ok`) | Text |
 
 ## `GET /api/files`
@@ -115,8 +117,18 @@ Appends a tombstone for an **open** note (no rewrite). `{ "ok": true, "deleted":
 |---|---|---|
 | `reload` | `{ "type":"reload", "path":"…" }` | `.md` / `.c4` under root changes |
 | `feedback` | `{ "type":"feedback", "event": {…Feedback} }` | After note / ack / tombstone |
+| `agent` | `{ "type":"agent", "state":"working\|idle", … }` | Presence change (logo pulse) |
 
-`peel_api.py wait-note` / `pair` subscribe here (poll fallback with `--poll`).
+`peel_api.py wait-note` / `pair` subscribe here (poll fallback with `--poll`). Use `busy` / `idle` for the pulsing logo.
+
+## `GET|POST /api/agent`
+
+Ephemeral presence (not written to `feedback.jsonl`). TTL ~5 minutes; matching `ack` clears `working`.
+
+```json
+// POST { "state":"working", "note":"editing architecture", "ref":"<note-id>" }
+// GET  { "state":"working", "note":"…", "ref":"…", "since":"…" }
+```
 
 ## `GET /healthz`
 

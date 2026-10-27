@@ -6,6 +6,7 @@ function peelApp() {
     c4FocusId: '', c4FocusLabel: '', c4FocusFrom: '', c4FocusTo: '',
     root: 'docs', query: '', sortKey: 'path', sortDir: 1, userSorted: false, showAll: false,
     noteText: '', selQuote: '', noteAction: '', feedback: [], feedbackNotes: [], feedbackTotal: 0, fbAll: false, fbStatus: 'open', sse: 'connecting', section: '', slideTitle: '',
+    agent: { state: 'idle', ref: '', note: '', since: '' },
     presets: [
       { icon: 'lightbulb', label: 'Explain this', action: 'explain' },
       { icon: 'wrench', label: 'Fix this', action: 'fix' },
@@ -22,6 +23,15 @@ function peelApp() {
 
     typeIcon(t) {
       return t === 'c4' ? '[c4]' : (t === 'deck' ? '[dk]' : '[md]');
+    },
+
+    get agentStatusLabel() {
+      if (this.agent.state !== 'working') return '';
+      const n = (this.agent.note || '').trim();
+      return n || 'Agent working…';
+    },
+    get agentWorkingTitle() {
+      return this.agent.state === 'working' ? this.agentStatusLabel : 'peel home';
     },
 
     get crumbs() {
@@ -168,6 +178,24 @@ function peelApp() {
       });
       this.connectSSE();
       this.refreshTotal();
+      this.loadAgent();
+    },
+
+    applyAgent(st) {
+      if (!st || typeof st !== 'object') return;
+      this.agent = {
+        state: st.state === 'working' ? 'working' : 'idle',
+        ref: st.ref || '',
+        note: st.note || '',
+        since: st.since || '',
+      };
+    },
+    async loadAgent() {
+      try {
+        const r = await fetch('/api/agent');
+        if (!r.ok) return;
+        this.applyAgent(await r.json());
+      } catch (_) { /* ignore */ }
     },
 
     toggleTheme() {
@@ -1098,6 +1126,8 @@ function peelApp() {
             this.toastFromFeedback(m.event);
             this.reloadFeedback();
             this.refreshTotal();
+          } else if (m.type === 'agent') {
+            this.applyAgent(m);
           }
         } catch (_) { /* ignore */ }
       };

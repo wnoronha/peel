@@ -41,10 +41,12 @@ skills/peel/peel_api.py health
 skills/peel/peel_api.py open
 skills/peel/peel_api.py wait-note --timeout 600
 skills/peel/peel_api.py wait-note --since-id <id> --timeout 600
-skills/peel/peel_api.py ack <note-id> "what changed"
+skills/peel/peel_api.py busy "editing architecture" <note-id>   # pulse logo
+skills/peel/peel_api.py ack <note-id> "what changed"           # clears pulse
+skills/peel/peel_api.py idle                                   # clear pulse without ack
 ```
 
-Source edits use normal file tools; only Peel HTTP uses this script.
+Source edits use normal file tools; only Peel HTTP uses this script. Call **`busy`** when you start working a note so the browser logo pulses.
 
 ## Pairing mode
 
@@ -53,7 +55,7 @@ When asked to pair / monitor / run this skill:
 1. `peel_api.py health` → `ok`. If not, tell them to run `./peel --dir <root>` (or `make run`).
 2. Catch-up: `peel_api.py open`. List open notes briefly. Do **not** mass-ack old smoke/test notes unless the user points at them.
 3. Tell the user you are paired, then **block** on `pair` or `wait-note` (await the process — do not background and walk away).
-4. When stdout prints a note JSON: handle it (edit → `ack`), tell the user what you did, then wait again (`wait-note --since-id <id>` or continue `pair`).
+4. When stdout prints a note JSON: `busy "…" <id>`, edit → `ack`, tell the user what you did, then wait again (`wait-note --since-id <id>` or continue `pair`).
 5. Exit code **124** = timeout — say you are still paired and wait again (or ask).
 6. If SSE fails, the script falls back to poll automatically (`--poll` to force).
 
@@ -65,8 +67,9 @@ Do **not** push or force-push unless the user asks.
 2. Match with `quote` first; then `file` + anchors (`headingId`, `slide`, `level`/`levelKind`, `c4Id`/`c4From`/`c4To`) + `startLine`.
 3. Honor `action`: `fix` | `explain` | `example` | `simplify` | `question`.
 4. Edit sources under the docs root (not `.peel/`).
-5. Ack: `peel_api.py ack <note-id> "what changed"`.
-6. Resume waiting.
+5. `peel_api.py busy "short status" <note-id>` (logo pulses).
+6. Ack: `peel_api.py ack <note-id> "what changed"` (clears pulse).
+7. Resume waiting.
 
 ## UX (what the human sees)
 
@@ -84,6 +87,6 @@ Do **not** push or force-push unless the user asks.
 
 ## API map
 
-`GET|POST /api/feedback` · `DELETE /api/feedback?id=` · `GET /events` · `GET /healthz`
+`GET|POST /api/feedback` · `DELETE /api/feedback?id=` · `GET|POST /api/agent` · `GET /events` · `GET /healthz`
 
 Project docs: `docs/agent-loop.md`, `docs/feedback-contract.md`, `docs/api.md`.

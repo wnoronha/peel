@@ -7,6 +7,8 @@ Do not invent ad-hoc curls or parallel clients.
   PEEL_URL=http://127.0.0.1:18124 ./skills/peel/peel_api.py health
   ./skills/peel/peel_api.py open
   ./skills/peel/peel_api.py wait-note --timeout 600
+  ./skills/peel/peel_api.py busy "editing…" [note-id]
+  ./skills/peel/peel_api.py idle
   ./skills/peel/peel_api.py ack <note-id> "what changed"
   ./skills/peel/peel_api.py pair --timeout 600
 """
@@ -89,6 +91,29 @@ def cmd_open(_: argparse.Namespace) -> int:
 def cmd_ack(args: argparse.Namespace) -> int:
     body = {"type": "ack", "ref": args.ref, "note": args.note or "resolved"}
     print(json.dumps(http_json("POST", "/api/feedback", body)))
+    # Server clears matching presence on ack; soft idle is a safe fallback.
+    try:
+        http_json("POST", "/api/agent", {"state": "idle"})
+    except Exception:
+        pass
+    return 0
+
+
+def cmd_busy(args: argparse.Namespace) -> int:
+    body: dict[str, Any] = {"state": "working", "note": args.note or "working…"}
+    if args.ref:
+        body["ref"] = args.ref
+    print(json.dumps(http_json("POST", "/api/agent", body)))
+    return 0
+
+
+def cmd_idle(_: argparse.Namespace) -> int:
+    print(json.dumps(http_json("POST", "/api/agent", {"state": "idle"})))
+    return 0
+
+
+def cmd_agent(_: argparse.Namespace) -> int:
+    print(json.dumps(http_json("GET", "/api/agent"), indent=2))
     return 0
 
 
@@ -239,6 +264,14 @@ def build_parser() -> argparse.ArgumentParser:
     a.add_argument("ref", help="note id")
     a.add_argument("note", nargs="?", default="resolved", help="what changed")
     a.set_defaults(func=cmd_ack)
+
+    b = sub.add_parser("busy", help="POST /api/agent working — pulse logo in browser")
+    b.add_argument("note", nargs="?", default="working…", help="status shown next to logo")
+    b.add_argument("ref", nargs="?", default="", help="optional note id (cleared on matching ack)")
+    b.set_defaults(func=cmd_busy)
+
+    sub.add_parser("idle", help="POST /api/agent idle — clear pulsing logo").set_defaults(func=cmd_idle)
+    sub.add_parser("agent", help="GET /api/agent presence").set_defaults(func=cmd_agent)
 
     n = sub.add_parser("note", help="POST a note (testing)")
     n.add_argument("file")

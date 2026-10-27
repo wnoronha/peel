@@ -21,6 +21,7 @@ type Server struct {
 	feedbackMu sync.Mutex
 	clients    map[chan string]struct{}
 	debounce   map[string]time.Time
+	agent      agentStored
 }
 
 func New(root string) *Server {
@@ -95,6 +96,8 @@ func (s *Server) Run(addr string) error {
 	mux.HandleFunc("GET /api/feedback", s.handleFeedbackList)
 	mux.HandleFunc("POST /api/feedback", s.handleFeedbackAdd)
 	mux.HandleFunc("DELETE /api/feedback", s.handleFeedbackDelete)
+	mux.HandleFunc("GET /api/agent", s.handleAgentGet)
+	mux.HandleFunc("POST /api/agent", s.handleAgentPost)
 	mux.HandleFunc("GET /events", s.handleEvents)
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("ok"))

@@ -60,8 +60,37 @@ body{margin:0;background:var(--color-background);color:var(--color-text);font-fa
 body[data-page="peel"] a{color:var(--color-text-strong);text-decoration:underline;text-underline-offset:4px;text-decoration-thickness:1px}
 [data-component="container"]{max-width:none;margin:0;border-left:none;border-right:none}
 [data-component="top"]{padding:0 24px;height:var(--header-h);min-height:var(--header-h);position:sticky;top:0;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;row-gap:8px;column-gap:16px;background:var(--color-background);border-bottom:1px solid var(--color-border-weak);z-index:10}
-[data-slot="logo"]{text-decoration:none;color:var(--color-text-strong);font-weight:500}
+body[data-page="peel"] a[data-slot="logo"],
+body[data-page="peel"] a[data-slot="logo"]:hover{
+  text-decoration:none;
+  color:var(--color-text-strong);
+  font-weight:500;
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  min-width:0;
+}
 [data-slot="logo"] .weak{color:var(--color-text-weak);font-weight:400}
+[data-slot="logo"] .peel-mark{flex-shrink:0;display:block}
+[data-slot="logo"] .peel-word{font-weight:600;letter-spacing:-0.02em}
+[data-slot="logo"].agent-working .peel-mark{
+  animation:peel-pulse 1.1s ease-in-out infinite;
+  color:var(--color-warning);
+}
+[data-slot="logo"] .agent-status{
+  margin-left:2px;padding:2px 8px;border-radius:var(--radius-sm);
+  font-size:12px;font-weight:500;line-height:1.4;
+  color:var(--color-warning);
+  background:color-mix(in srgb, var(--color-warning) 14%, transparent);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:min(280px,36vw)
+}
+@keyframes peel-pulse{
+  0%,100%{opacity:1;transform:scale(1)}
+  50%{opacity:.55;transform:scale(1.12)}
+}
+@media (prefers-reduced-motion:reduce){
+  [data-slot="logo"].agent-working .peel-mark{animation:none;opacity:.85}
+}
 [data-component="nav-desktop"] ul{display:flex;align-items:center;gap:24px;list-style:none;margin:0;padding:0}
 body[data-page="peel"] [data-component="nav-desktop"] a{text-decoration:none;font-weight:500;font-size:16px}
 body[data-page="peel"] [data-component="nav-desktop"] a:hover{text-decoration:underline}

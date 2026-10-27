@@ -217,6 +217,9 @@ func (s *Server) handleFeedbackAdd(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.emitFeedback(fb)
+	if t == FeedbackAck {
+		s.clearAgentIfRef(fb.Ref)
+	}
 	writeJSON(w, map[string]any{"ok": true, "id": fb.ID, "type": fb.Type})
 }
 
