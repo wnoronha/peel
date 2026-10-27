@@ -28,14 +28,24 @@
 </svg>
 <div data-component="container" x-data="peelApp">
   <header data-component="top">
-    <a data-slot="logo" href="/" @click.prevent="goHome()">▪ peel <span class="weak">/ <span id="rootName" x-text="root">docs</span></span></a>
+    <a data-slot="logo" href="/" @click.prevent="goHome()"
+       :class="{ 'agent-working': agent.state === 'working' }"
+       :title="agentWorkingTitle">
+      <svg class="peel-mark" width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M12 3c-3.2 2.2-5 5.2-5 9a5 5 0 0 0 10 0c0-3.8-1.8-6.8-5-9Z" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"/>
+        <path d="M12 7c-1.8 1.3-2.8 3-2.8 5.2a2.8 2.8 0 1 0 5.6 0c0-2.2-1-3.9-2.8-5.2Z" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round" opacity="0.7"/>
+        <path d="M14.5 4.2c1.6-.3 3.2.1 4.3 1.2" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" opacity="0.85"/>
+      </svg>
+      <span class="peel-word">peel</span>
+      <span class="weak">/ <span id="rootName" x-text="root">docs</span></span>
+      <span class="agent-status" x-show="agent.state === 'working'" x-text="agentStatusLabel" aria-live="polite"></span>
+    </a>
     <nav data-component="nav-desktop">
       <ul>
         <li><a href="#" @click.prevent="openFiles('all')">Files</a></li>
         <li><a href="#" @click.prevent="openFiles('decks')">Decks</a></li>
         <li><a href="#" @click.prevent="openFiles('c4')">C4</a></li>
         <li><a href="#" @click.prevent="openFeedbackAll()">Feedback <span id="fbCount" x-text="feedbackTotal ? `(${feedbackTotal})` : ''"></span></a></li>
-        <li><a data-slot="cta-button" href="#" @click.prevent="openAnnotate()">✎ Annotate</a></li>
         <li><button class="mini-btn" @click="toggleTheme()" title="Toggle theme" aria-label="Toggle theme">◐</button></li>
       </ul>
     </nav>
@@ -148,7 +158,7 @@
       <article id="content" x-ref="content" x-show="doc?.type !== 'c4'"><p class="weak">Select a file to read.</p></article>
       <div id="c4view" x-show="doc?.type === 'c4'">
         <div class="c4-scroll" x-ref="c4scroll">
-          <div class="c4-canvas" x-ref="c4canvas" @click="c4Drill($event)" title="Click a box to drill down"></div>
+          <div class="c4-canvas" x-ref="c4canvas" @click="c4Click($event)" @dblclick="c4DblClick($event)" title="Click to comment · double-click to drill"></div>
         </div>
         <div class="c4-legend weak"><span><i class="sw sys"></i>system</span><span><i class="sw ext"></i>external</span><span><i class="sw cont"></i>container</span><span><i class="sw comp"></i>component</span><span><i class="sw store"></i>store</span><span><i class="sw person"></i>person</span></div>
       </div>
@@ -224,6 +234,15 @@
     <span>peel · <span id="footRoot" x-text="root">docs</span></span>
     <span><span x-text="sse === 'live' ? '●' : '○'" :style="`color:${sse === 'live' ? 'green' : 'red'}`">●</span> <span x-text="sse === 'live' ? 'live · SSE' : sse + ' · SSE'">live · SSE</span></span>
   </footer>
+
+  <div id="toasts" aria-live="polite" aria-relevant="additions">
+    <template x-for="t in toasts" :key="t.id">
+      <button type="button" class="toast" :class="'toast-' + t.kind" @click="onToastClick(t)" :title="t.action === 'feedback' ? 'Open Feedback' : ''">
+        <span class="toast-msg" x-text="t.message"></span>
+        <span class="toast-x" @click.stop="dismissToast(t.id)" aria-label="Dismiss">×</span>
+      </button>
+    </template>
+  </div>
 
   <div id="composer" x-show="composer.open" :style="`left:${composer.x}px;top:${composer.y}px`" @keydown.escape.window="closeComposer()">
     <button class="cmp-x" @click="closeComposer()" aria-label="Close">×</button>

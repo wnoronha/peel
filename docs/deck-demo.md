@@ -1,30 +1,38 @@
 ---
 marp: true
-title: Demo deck
+title: Loop smoke deck
 ---
 
-# Demo deck
+# Loop smoke deck
 
-Minimal slide stack for smoke-testing deck mode.
-For the real pitch, use [[deck-peel-tour]] or [[deck-use-cases]].
+Minimal slides to exercise deck mode + the agent loop.
+Pitch decks: [[deck-peel-tour]] · [[deck-use-cases]]
 
 ---
 
-## Diagram slide
+## The happy path
 
 ```mermaid
 sequenceDiagram
-  participant R as Reader
-  participant P as peel
-  participant A as Agent
-  R->>P: note
-  A->>P: ack
-  A->>P: edit sources
-  P-->>R: SSE reload
+  actor U as User
+  participant UI as Web UI
+  participant API as /api/feedback
+  participant A as peel_api / agent
+  U->>UI: select quote + Save
+  UI->>API: POST note
+  API-->>A: SSE feedback
+  A->>A: edit source
+  A->>API: POST ack
+  API-->>UI: SSE feedback + toast
 ```
 
 ---
 
-## Done
+## Leave a note on this line
 
-Open [[annotate]] and leave a note on this line.
+Select the sentence below, chip **Fix this**, Save.
+Then pair an agent with `skills/peel/peel_api.py wait-note`.
+
+> Smoke target: this paragraph should become clearer after an agent ack.
+
+Guide: [[annotate]] · [[agent-loop]]

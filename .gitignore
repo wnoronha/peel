@@ -1,6 +1,6 @@
 # Binaries
-peel
-peel.exe
+/peel
+/peel.exe
 *.exe
 
 # Peel feedback data
@@ -15,3 +15,6 @@ peel.exe
 .DS_Store
 Thumbs.db
 .ai/
+
+__pycache__/
+*.py[cod]

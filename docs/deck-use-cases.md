@@ -8,27 +8,47 @@ title: Peel use cases
 Architecture review.
 Agent doc fixes.
 Onboarding decks.
-Spec + code side by side.
+Spec beside the build.
 
-Full write-up: [[use-cases]]
+Long form: [[use-cases]]
 
 ---
 
 ## 1 · Architecture review
 
-Open a `.c4` model.
-Walk levels. Drill into boxes.
-Annotate wrong labels — agents patch the source.
+Open a dedicated `*.c4` model.
+Walk levels. **Click** to comment. **Double-click** to drill.
+Agents patch `.c4` using `c4Id` / Rel endpoints.
 
-Demo model: [[c4-peel]]
+Model: [[c4-peel]] · Gestures: [[deck-c4]]
+
+```mermaid
+flowchart TB
+  subgraph levels [C4 levels]
+    Ctx[Context] --> Ctn[Container]
+    Ctn --> Cmp[Component]
+    Cmp --> Code[Code / Dynamic]
+  end
+  Human -->|click comment| Ctx
+  Agent -->|edit .c4 + ack| Ctx
+```
 
 ---
 
 ## 2 · Agent fix loop
 
-Select a stale sentence.
-Chip **Fix this**. Save.
-Agent edits + acks. Drawer → **Acked**.
+```mermaid
+sequenceDiagram
+  actor U as User
+  participant P as peel
+  participant A as Agent
+  U->>P: select + Fix this + Save
+  P-->>A: SSE feedback / wait-note
+  A->>A: edit markdown
+  A->>P: POST ack
+  P-->>U: toast + Acked tab
+  Note over P,U: doc reload via SSE
+```
 
 Playbook: [[agent-loop]]
 
@@ -37,9 +57,16 @@ Playbook: [[agent-loop]]
 ## 3 · Onboarding as a deck
 
 Present with ← / →.
-`Ctrl-P` jumps into a deep spec without leaving peel.
+`Ctrl/Cmd-P` jumps into a deep spec without leaving peel.
 
 Tour: [[deck-peel-tour]]
+
+```mermaid
+flowchart LR
+  Tour[deck-peel-tour] --> Spec[feedback-contract]
+  Tour --> Model[c4-peel]
+  Spec --> API[api]
+```
 
 ---
 
@@ -47,17 +74,18 @@ Tour: [[deck-peel-tour]]
 
 Keep [[feedback-contract]] or [[c4-format]] open.
 Annotate ambiguities.
-Agent updates Go + markdown in one pass.
+Agent updates Go handlers **and** the markdown in one pass.
 
 ---
 
-## Status is the drawer
+## Status lives in the drawer
 
-**Open** → work queue  
-**Acked** → agent done  
-**Dismissed** → human discarded  
-
-Marks only for open notes on the current file.
+| Tab | Meaning |
+|---|---|
+| Open | Work queue + peach marks |
+| Acked | Agent finished (`ack: …`) |
+| Dismissed | You hit × (tombstone) |
+| All | Full history for scope |
 
 ---
 
@@ -65,7 +93,7 @@ Marks only for open notes on the current file.
 
 Wiki hosting. Ticket tracking. Multi-tenant CMS.
 
-Peel is the thin loop: quote → note → edit → ack.
+Peel is the thin loop: **quote → note → edit → ack**.
 
 ---
 
@@ -73,6 +101,7 @@ Peel is the thin loop: quote → note → edit → ack.
 
 ```sh
 ./peel --dir ./docs --port 18124
+skills/peel/peel_api.py pair --timeout 600
 ```
 
 Leave a note here. That is the product.

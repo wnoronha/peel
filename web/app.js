@@ -3,8 +3,10 @@
 function peelApp() {
   return {
     files: [], tab: 'all', current: null, doc: null, slideIdx: 0, levelIdx: 0, c4Zoom: 1, c4AutoFit: true,
+    c4FocusId: '', c4FocusLabel: '', c4FocusFrom: '', c4FocusTo: '',
     root: 'docs', query: '', sortKey: 'path', sortDir: 1, userSorted: false, showAll: false,
     noteText: '', selQuote: '', noteAction: '', feedback: [], feedbackNotes: [], feedbackTotal: 0, fbAll: false, fbStatus: 'open', sse: 'connecting', section: '', slideTitle: '',
+    agent: { state: 'idle', ref: '', note: '', since: '' },
     presets: [
       { icon: 'lightbulb', label: 'Explain this', action: 'explain' },
       { icon: 'wrench', label: 'Fix this', action: 'fix' },
@@ -16,9 +18,20 @@ function peelApp() {
     leftOpen: false, rightOpen: false, metaOpen: null,
     goto: { open: false, query: '', idx: 0 },
     gotoHits: [],
+    toasts: [],
+    _toastSeq: 0,
 
     typeIcon(t) {
       return t === 'c4' ? '[c4]' : (t === 'deck' ? '[dk]' : '[md]');
+    },
+
+    get agentStatusLabel() {
+      if (this.agent.state !== 'working') return '';
+      const n = (this.agent.note || '').trim();
+      return n || 'Agent working…';
+    },
+    get agentWorkingTitle() {
+      return this.agent.state === 'working' ? this.agentStatusLabel : 'peel home';
     },
 
     get crumbs() {
@@ -165,6 +178,24 @@ function peelApp() {
       });
       this.connectSSE();
       this.refreshTotal();
+      this.loadAgent();
+    },
+
+    applyAgent(st) {
+      if (!st || typeof st !== 'object') return;
+      this.agent = {
+        state: st.state === 'working' ? 'working' : 'idle',
+        ref: st.ref || '',
+        note: st.note || '',
+        since: st.since || '',
+      };
+    },
+    async loadAgent() {
+      try {
+        const r = await fetch('/api/agent');
+        if (!r.ok) return;
+        this.applyAgent(await r.json());
+      } catch (_) { /* ignore */ }
     },
 
     toggleTheme() {
@@ -279,10 +310,6 @@ function peelApp() {
       localStorage.setItem('peel-left', '1');
       setTimeout(() => this.$refs.filter && this.$refs.filter.focus(), 50);
     },
-    openAnnotate() {
-      this.toggleRight();
-      if (this.rightOpen) setTimeout(() => this.$refs.note && this.$refs.note.focus(), 50);
-    },
     openFeedbackAll() {
       this.rightOpen = true;
       localStorage.setItem('peel-right', '1');
@@ -336,6 +363,8 @@ function peelApp() {
       this.selQuote = '';
       this.composer.open = false;
       this.composerNote = '';
+      this.clearC4Focus();
+      clearTimeout(this._c4ClickT);
       const c = this.$refs.content;
       c.innerHTML = '';
       if (this.$refs.c4canvas) this.$refs.c4canvas.innerHTML = '';
@@ -438,6 +467,8 @@ function peelApp() {
       if (this.doc?.type !== 'c4') return;
       const n = (this.doc.levels || []).length;
       this.levelIdx = Math.max(0, Math.min(n - 1, i));
+      this.clearC4Focus();
+      clearTimeout(this._c4ClickT);
       this.c4AutoFit = true;
       this.renderC4();
       this.$nextTick(() => this.c4ZoomFit());
@@ -487,11 +518,132 @@ function peelApp() {
       this.applyC4Zoom();
     },
 
+    clearC4Focus() {
+      this.c4FocusId = '';
+      this.c4FocusLabel = '';
+      this.c4FocusFrom = '';
+      this.c4FocusTo = '';
+    },
+
+    c4LevelSource() {
+      return ((this.doc && this.doc.levels || [])[this.levelIdx] || {}).source || (this.doc && this.doc.body) || '';
+    },
+
+    c4LabelForId(id) {
+      if (!id || !this.doc) return '';
+      const src = this.c4LevelSource();
+      const esc = String(id).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const re = new RegExp(
+        '\\b(?:Person|System_Ext|System|ContainerDb|Container_Ext|Container|Component_Ext|Component)\\(\\s*' +
+          esc + '\\s*,\\s*"([^"]+)"'
+      );
+      const m = src.match(re);
+      return m ? m[1] : '';
+    },
+
+    c4RelInfoForEdgeId(edgeId) {
+      if (!edgeId || !this.doc) return null;
+      const src = this.c4LevelSource();
+      const re = /\bRel(?:_[UDLR])?\(\s*([A-Za-z0-9_-]+)\s*,\s*([A-Za-z0-9_-]+)\s*,\s*"([^"]*)"/g;
+      let m;
+      while ((m = re.exec(src))) {
+        const from = m[1], to = m[2], label = m[3];
+        if (from + '-' + to === edgeId) return { id: edgeId, from, to, label };
+      }
+      const i = edgeId.indexOf('-');
+      if (i > 0) return { id: edgeId, from: edgeId.slice(0, i), to: edgeId.slice(i + 1), label: '' };
+      return null;
+    },
+
+    setC4FocusFromNode(g) {
+      if (!g || !g.dataset || !g.dataset.id) return null;
+      const id = g.dataset.id;
+      const label = this.c4LabelForId(id) || '';
+      this.c4FocusId = id;
+      this.c4FocusLabel = label;
+      this.c4FocusFrom = '';
+      this.c4FocusTo = '';
+      return { id, label, from: '', to: '' };
+    },
+
+    setC4FocusFromEdge(g) {
+      if (!g || !g.dataset || !g.dataset.id) return null;
+      const id = g.dataset.id;
+      const info = this.c4RelInfoForEdgeId(id) || { id, from: '', to: '', label: '' };
+      let label = (info.label || '').trim();
+      if (!label && g.classList.contains('pele-edge-label')) {
+        label = (g.textContent || '').replace(/\s+/g, ' ').trim();
+      }
+      this.c4FocusId = id;
+      this.c4FocusLabel = label;
+      this.c4FocusFrom = info.from || '';
+      this.c4FocusTo = info.to || '';
+      return { id, label, from: this.c4FocusFrom, to: this.c4FocusTo };
+    },
+
+    setC4FocusFromEl(el) {
+      if (!el || !el.closest) return null;
+      const node = el.closest('.pele-node');
+      if (node) return this.setC4FocusFromNode(node);
+      const edge = el.closest('.pele-edge, .pele-edge-label');
+      if (edge) return this.setC4FocusFromEdge(edge);
+      return null;
+    },
+
+    captureC4FromSelection() {
+      if (this.doc?.type !== 'c4') return null;
+      const sel = window.getSelection();
+      if (!sel || !sel.rangeCount) return null;
+      let el = sel.anchorNode;
+      el = el && el.nodeType === 3 ? el.parentElement : el;
+      return this.setC4FocusFromEl(el);
+    },
+
+    openC4Composer(ev, hit) {
+      const q = hit.label || hit.id;
+      this.selQuote = q;
+      this.composerQuote = q.length > 60 ? q.slice(0, 57) + '…' : q;
+      const pad = 8;
+      let x = ev.clientX + pad, y = ev.clientY + pad;
+      if (x + 320 > window.innerWidth) x = window.innerWidth - 330;
+      if (y + 180 > window.innerHeight) y = Math.max(10, ev.clientY - 190);
+      this.composer = { open: true, x: Math.max(10, x), y };
+      this.$nextTick(() => {
+        const box = document.querySelector('#composer textarea');
+        if (box) box.focus();
+      });
+    },
+
+    c4Comment(ev) {
+      if (this.doc?.type !== 'c4') return;
+      const hit = this.setC4FocusFromEl(ev.target);
+      if (!hit) return;
+      this.openC4Composer(ev, hit);
+    },
+
     c4Drill(ev) {
       if (this.doc?.type !== 'c4') return;
       const g = ev.target && ev.target.closest ? ev.target.closest('.pele-node') : null;
       if (!g || !g.dataset.id) return;
       if (this.levelIdx + 1 < (this.doc.levels || []).length) this.showLevel(this.levelIdx + 1);
+    },
+
+    // Single-click comments; double-click drills (timer avoids firing both).
+    c4Click(ev) {
+      if (this.doc?.type !== 'c4') return;
+      if (!this.setC4FocusFromEl(ev.target)) return;
+      clearTimeout(this._c4ClickT);
+      const x = ev.clientX, y = ev.clientY, t = ev.target;
+      this._c4ClickT = setTimeout(() => {
+        this.c4Comment({ clientX: x, clientY: y, target: t });
+      }, 280);
+    },
+
+    c4DblClick(ev) {
+      if (this.doc?.type !== 'c4') return;
+      clearTimeout(this._c4ClickT);
+      this.composer.open = false;
+      this.c4Drill(ev);
     },
 
     scrollToId(id) {
@@ -554,10 +706,14 @@ function peelApp() {
     },
 
     onSelect() {
-      const q = this.selectedQuote();
+      let q = this.selectedQuote();
       const inNote = this.$refs.note && this.$refs.note.contains(document.activeElement);
       const inCmp = document.querySelector('#composer textarea') && document.querySelector('#composer textarea').contains(document.activeElement);
       if (q && !inNote && !inCmp) {
+        const c4n = this.captureC4FromSelection();
+        if (c4n && (/[«»]|<<|\n/.test(q) || q.length > 80 || q.replace(/\s+/g, '').length < 2)) {
+          q = c4n.label || c4n.id;
+        }
         this.selQuote = q;
         this.composerQuote = q.length > 60 ? q.slice(0, 57) + '…' : q;
         const sel = window.getSelection();
@@ -574,7 +730,12 @@ function peelApp() {
         this.composer.open = false;
       }
     },
-    closeComposer() { this.composer.open = false; this.composerNote = ''; this.composerAction = ''; },
+    closeComposer() {
+      this.composer.open = false;
+      this.composerNote = '';
+      this.composerAction = '';
+      this.clearC4Focus();
+    },
 
     applyPreset(cur, preset) {
       const t = (cur || '').trim();
@@ -604,9 +765,23 @@ function peelApp() {
       this.$nextTick(() => box && box.focus());
     },
 
-    lineRangeFor(quote) {
-      if (!this.doc || !quote) return [0, 0];
+    lineRangeFor(quote, c4Id, c4From, c4To) {
+      if (!this.doc) return [0, 0];
       const lines = (this.doc.body || '').split('\n');
+      if (c4From && c4To) {
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i];
+          if (/\bRel/.test(line) && line.includes(c4From) && line.includes(c4To)) return [i + 1, i + 1];
+        }
+      }
+      if (c4Id) {
+        const a = '(' + c4Id + ',';
+        const b = '(' + c4Id + ')';
+        for (let i = 0; i < lines.length; i++) {
+          if (lines[i].includes(a) || lines[i].includes(b)) return [i + 1, i + 1];
+        }
+      }
+      if (!quote) return [0, 0];
       const first = quote.split('\n')[0].slice(0, 80);
       let start = 0;
       for (let i = 0; i < lines.length; i++) {
@@ -615,7 +790,7 @@ function peelApp() {
       return [start, start + (quote.match(/\n/g) || []).length];
     },
 
-    // Stable view anchors alongside quote/lines (deck slide, C4 level, md heading id).
+    // Stable view anchors alongside quote/lines (deck slide, C4 level + node/edge, md heading id).
     feedbackAnchor() {
       const a = {};
       if (!this.doc) return a;
@@ -626,6 +801,13 @@ function peelApp() {
       if (this.doc.type === 'c4') {
         a.level = this.levelIdx + 1;
         if (this.c4LevelKind) a.levelKind = this.c4LevelKind;
+        if (!this.c4FocusId) this.captureC4FromSelection();
+        if (this.c4FocusId) {
+          a.c4Id = this.c4FocusId;
+          if (this.c4FocusLabel) a.c4Label = this.c4FocusLabel;
+          if (this.c4FocusFrom) a.c4From = this.c4FocusFrom;
+          if (this.c4FocusTo) a.c4To = this.c4FocusTo;
+        }
         return a;
       }
       const outline = this.doc.outline || [];
@@ -659,11 +841,26 @@ function peelApp() {
       const box = document.querySelector('#composer textarea');
       const note = (this.composerNote || (box ? box.value : '')).trim();
       if (!this.selQuote || !note) return;
-      const [sl, el] = this.lineRangeFor(this.selQuote);
-      const body = { type: 'note', file: this.current, quote: this.selQuote, startLine: sl, endLine: el, note: this.composerNote.trim(), ...this.feedbackAnchor() };
+      const anchor = this.feedbackAnchor();
+      let quote = this.selQuote;
+      if (anchor.c4Id && (/[«»]|<<|\n/.test(quote) || quote.length > 80)) {
+        quote = anchor.c4Label || anchor.c4Id;
+      }
+      const [sl, el] = this.lineRangeFor(quote, anchor.c4Id, anchor.c4From, anchor.c4To);
+      const body = { type: 'note', file: this.current, quote, startLine: sl, endLine: el, note: this.composerNote.trim(), ...anchor };
       if (this.composerAction) body.action = this.composerAction;
       const r = await fetch('/api/feedback', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-      if (r.ok) { this.composerNote = ''; this.composerAction = ''; this.composer.open = false; this.selQuote = ''; window.getSelection().removeAllRanges(); this.loadFeedback(); this.refreshTotal(); }
+      if (r.ok) {
+        this._suppressNoteToastUntil = Date.now() + 2500;
+        this.composerNote = '';
+        this.composerAction = '';
+        this.composer.open = false;
+        this.selQuote = '';
+        this.clearC4Focus();
+        window.getSelection().removeAllRanges();
+        this.loadFeedback();
+        this.refreshTotal();
+      }
     },
 
     // Classify raw log events into notes with status: open | acked | dismissed.
@@ -809,14 +1006,25 @@ function peelApp() {
     },
 
     async saveNote() {
-      const q = this.selQuote || this.selectedQuote();
+      let q = this.selQuote || this.selectedQuote();
       const note = (this.noteText || (this.$refs.note ? this.$refs.note.value : '')).trim();
       if (!q || !note) return;
-      const [sl, el] = this.lineRangeFor(q);
-      const body = { type: 'note', file: this.current, quote: q, startLine: sl, endLine: el, note, ...this.feedbackAnchor() };
+      const anchor = this.feedbackAnchor();
+      if (anchor.c4Id && (/[«»]|<<|\n/.test(q) || q.length > 80)) q = anchor.c4Label || anchor.c4Id;
+      const [sl, el] = this.lineRangeFor(q, anchor.c4Id, anchor.c4From, anchor.c4To);
+      const body = { type: 'note', file: this.current, quote: q, startLine: sl, endLine: el, note, ...anchor };
       if (this.noteAction) body.action = this.noteAction;
       const r = await fetch('/api/feedback', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-      if (r.ok) { this.noteText = ''; this.noteAction = ''; this.selQuote = ''; window.getSelection().removeAllRanges(); this.loadFeedback(); this.refreshTotal(); }
+      if (r.ok) {
+        this._suppressNoteToastUntil = Date.now() + 2500;
+        this.noteText = '';
+        this.noteAction = '';
+        this.selQuote = '';
+        this.clearC4Focus();
+        window.getSelection().removeAllRanges();
+        this.loadFeedback();
+        this.refreshTotal();
+      }
     },
 
     async reloadFeedback() {
@@ -849,6 +1057,58 @@ function peelApp() {
       } catch (_) { /* ignore */ }
     },
 
+    toast(message, opts = {}) {
+      const id = ++this._toastSeq;
+      const kind = opts.kind || 'info'; // info | ok | warn
+      const ttl = opts.ttl != null ? opts.ttl : 4500;
+      const item = { id, message, kind, action: opts.action || null };
+      this.toasts = [...this.toasts, item].slice(-4);
+      if (ttl > 0) {
+        setTimeout(() => this.dismissToast(id), ttl);
+      }
+    },
+
+    dismissToast(id) {
+      this.toasts = this.toasts.filter(t => t.id !== id);
+    },
+
+    onToastClick(t) {
+      if (t.action === 'feedback') {
+        this.rightOpen = true;
+        localStorage.setItem('peel-right', '1');
+        if (t.kind === 'ok') this.setFbStatus('acked');
+        else this.setFbStatus('open');
+        this.reloadFeedback();
+      }
+      this.dismissToast(t.id);
+    },
+
+    toastFromFeedback(ev) {
+      if (!ev || typeof ev !== 'object') return;
+      const t = ev.type || 'note';
+      if (t === 'ack') {
+        const detail = (ev.note || '').trim();
+        const msg = detail
+          ? ('Agent finished: ' + (detail.length > 72 ? detail.slice(0, 69) + '…' : detail))
+          : 'Agent finished a note';
+        this.toast(msg, { kind: 'ok', action: 'feedback' });
+        return;
+      }
+      if (t === 'tombstone') {
+        this.toast('Note dismissed', { kind: 'warn', action: 'feedback' });
+        return;
+      }
+      if (t === 'note') {
+        // Skip toasting our own composer/panel saves (same tab still gets the event).
+        // Short quiet window after local save ids.
+        if (this._suppressNoteToastUntil && Date.now() < this._suppressNoteToastUntil) return;
+        const file = ev.file ? String(ev.file) : 'a file';
+        const preview = (ev.note || ev.quote || '').trim();
+        const bit = preview ? (preview.length > 48 ? preview.slice(0, 45) + '…' : preview) : file;
+        this.toast('New note · ' + bit, { kind: 'info', action: 'feedback' });
+      }
+    },
+
     connectSSE() {
       const es = new EventSource('/events');
       es.onopen = () => { this.sse = 'live'; };
@@ -858,7 +1118,16 @@ function peelApp() {
           const m = JSON.parse(e.data);
           if (m.type === 'reload') {
             this.loadFiles();
-            if (m.path === this.current) this.openFile(this.current);
+            if (m.path === this.current) {
+              this.openFile(this.current);
+              this.toast('Doc updated · ' + m.path, { kind: 'info', ttl: 3200 });
+            }
+          } else if (m.type === 'feedback') {
+            this.toastFromFeedback(m.event);
+            this.reloadFeedback();
+            this.refreshTotal();
+          } else if (m.type === 'agent') {
+            this.applyAgent(m);
           }
         } catch (_) { /* ignore */ }
       };

@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+	"unicode"
 )
 
 // Event types for the append-only feedback log.
@@ -32,6 +33,10 @@ type Feedback struct {
 	Slide     int    `json:"slide,omitempty"`     // 1-based deck slide
 	Level     int    `json:"level,omitempty"`     // 1-based C4 level
 	LevelKind string `json:"levelKind,omitempty"` // Context|Container|Component|Code|…
+	C4ID      string `json:"c4Id,omitempty"`      // Pele id: node (reader) or edge (reader-peel)
+	C4Label   string `json:"c4Label,omitempty"`   // node name or Rel label
+	C4From    string `json:"c4From,omitempty"`    // Rel source id when c4Id is an edge
+	C4To      string `json:"c4To,omitempty"`      // Rel target id when c4Id is an edge
 }
 
 var allowedActions = map[string]bool{
@@ -40,6 +45,21 @@ var allowedActions = map[string]bool{
 
 func feedbackPath(root string) string {
 	return filepath.Join(root, ".peel", "feedback.jsonl")
+}
+
+// sanitizeC4ID keeps Pele/C4 element or edge ids (letters, digits, _ -).
+func sanitizeC4ID(id string) string {
+	id = strings.TrimSpace(id)
+	if id == "" || len(id) > 96 {
+		return ""
+	}
+	for _, r := range id {
+		if unicode.IsLetter(r) || unicode.IsDigit(r) || r == '_' || r == '-' {
+			continue
+		}
+		return ""
+	}
+	return id
 }
 
 func feedbackType(fb Feedback) string {
@@ -148,6 +168,18 @@ func (s *Server) handleFeedbackAdd(w http.ResponseWriter, r *http.Request) {
 		}
 		fb.Type = FeedbackNote
 		fb.Ref = ""
+		fb.C4ID = sanitizeC4ID(fb.C4ID)
+		fb.C4Label = strings.TrimSpace(fb.C4Label)
+		fb.C4From = sanitizeC4ID(fb.C4From)
+		fb.C4To = sanitizeC4ID(fb.C4To)
+		if len(fb.C4Label) > 200 {
+			fb.C4Label = fb.C4Label[:200]
+		}
+		if fb.C4ID == "" {
+			fb.C4Label = ""
+			fb.C4From = ""
+			fb.C4To = ""
+		}
 	case FeedbackAck, FeedbackTombstone:
 		if strings.TrimSpace(fb.Ref) == "" {
 			http.Error(w, "missing ref", http.StatusBadRequest)
@@ -163,6 +195,10 @@ func (s *Server) handleFeedbackAdd(w http.ResponseWriter, r *http.Request) {
 		fb.Slide = 0
 		fb.Level = 0
 		fb.LevelKind = ""
+		fb.C4ID = ""
+		fb.C4Label = ""
+		fb.C4From = ""
+		fb.C4To = ""
 		if t == FeedbackTombstone {
 			fb.Note = ""
 		}
@@ -180,7 +216,20 @@ func (s *Server) handleFeedbackAdd(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "write", 500)
 		return
 	}
+	s.emitFeedback(fb)
+	if t == FeedbackAck {
+		s.clearAgentIfRef(fb.Ref)
+	}
 	writeJSON(w, map[string]any{"ok": true, "id": fb.ID, "type": fb.Type})
+}
+
+// emitFeedback wakes SSE clients (agents + browser Feedback panel).
+func (s *Server) emitFeedback(fb Feedback) {
+	msg, err := json.Marshal(map[string]any{"type": "feedback", "event": fb})
+	if err != nil {
+		return
+	}
+	s.broadcast(string(msg))
 }
 
 func (s *Server) handleFeedbackDelete(w http.ResponseWriter, r *http.Request) {
@@ -211,6 +260,7 @@ func (s *Server) handleFeedbackDelete(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "write", 500)
 				return
 			}
+			s.emitFeedback(fb)
 			writeJSON(w, map[string]any{"ok": true, "deleted": true})
 			return
 		}

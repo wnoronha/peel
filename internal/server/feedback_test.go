@@ -217,8 +217,10 @@ func TestFeedbackActionPersisted(t *testing.T) {
 func TestFeedbackAnchorsPersisted(t *testing.T) {
 	s := New(t.TempDir())
 	body, _ := json.Marshal(Feedback{
-		File: "c4-peel.c4", Quote: "Annotate", Note: "n",
+		File: "c4-peel.c4", Quote: "browses and annotates", Note: "n",
 		Level: 3, LevelKind: "Component",
+		C4ID: "reader-peel", C4Label: "browses and annotates",
+		C4From: "reader", C4To: "peel",
 	})
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/api/feedback", bytes.NewReader(body))
@@ -239,6 +241,21 @@ func TestFeedbackAnchorsPersisted(t *testing.T) {
 	got := listResp.Feedback[0]
 	if got.Level != 3 || got.LevelKind != "Component" {
 		t.Fatalf("expected level anchors, got %+v", got)
+	}
+	if got.C4ID != "reader-peel" || got.C4Label != "browses and annotates" || got.C4From != "reader" || got.C4To != "peel" {
+		t.Fatalf("expected c4 edge anchors, got %+v", got)
+	}
+}
+
+func TestSanitizeC4ID(t *testing.T) {
+	if sanitizeC4ID("reader") != "reader" || sanitizeC4ID("my-node_1") != "my-node_1" {
+		t.Fatal("expected simple ids")
+	}
+	if sanitizeC4ID("reader-peel") != "reader-peel" {
+		t.Fatal("expected edge id")
+	}
+	if sanitizeC4ID("../x") != "" || sanitizeC4ID("a b") != "" {
+		t.Fatal("expected reject")
 	}
 }
 
