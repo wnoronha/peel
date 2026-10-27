@@ -62,6 +62,20 @@ func TestSplitSlides(t *testing.T) {
 	}
 }
 
+func TestSplitSlidesIgnoresFenceHR(t *testing.T) {
+	deck := "## Levels\n\n```\nC4Context\n---\nC4Container\n```\n\n---\n\n## Next"
+	slides := splitSlides(deck)
+	if len(slides) != 2 {
+		t.Fatalf("expected 2 slides (fence --- ignored), got %d: %+v", len(slides), slides)
+	}
+	if !strings.Contains(slides[0], "C4Context") || !strings.Contains(slides[0], "C4Container") {
+		t.Fatalf("code example should stay on slide 1: %q", slides[0])
+	}
+	if !strings.Contains(slides[1], "## Next") {
+		t.Fatalf("slide 2 missing: %q", slides[1])
+	}
+}
+
 func TestHandleDocModes(t *testing.T) {
 	tmp := t.TempDir()
 

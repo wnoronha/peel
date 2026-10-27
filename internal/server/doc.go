@@ -120,8 +120,17 @@ func splitSlides(body string) []string {
 	lines := strings.Split(body, "\n")
 	var slides []string
 	var cur []string
+	inFence := false
 	for _, ln := range lines {
-		if strings.TrimSpace(ln) == "---" {
+		trim := strings.TrimSpace(ln)
+		// Fenced code (``` or ~~~) may contain literal --- (e.g. C4 level
+		// separators in examples). Those must not become slide breaks.
+		if strings.HasPrefix(trim, "```") || strings.HasPrefix(trim, "~~~") {
+			inFence = !inFence
+			cur = append(cur, ln)
+			continue
+		}
+		if !inFence && trim == "---" {
 			slides = append(slides, strings.Join(cur, "\n"))
 			cur = nil
 			continue
