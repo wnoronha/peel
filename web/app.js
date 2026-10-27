@@ -612,9 +612,14 @@ function peelApp() {
       const note = (this.composerNote || (box ? box.value : '')).trim();
       if (!this.selQuote || !note) return;
       const [sl, el] = this.lineRangeFor(this.selQuote);
-      const body = { file: this.current, quote: this.selQuote, startLine: sl, endLine: el, note: this.composerNote.trim() };
+      const body = { type: 'note', file: this.current, quote: this.selQuote, startLine: sl, endLine: el, note: this.composerNote.trim() };
       const r = await fetch('/api/feedback', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       if (r.ok) { this.composerNote = ''; this.composer.open = false; this.selQuote = ''; window.getSelection().removeAllRanges(); this.loadFeedback(); this.refreshTotal(); }
+    },
+
+    // GET /api/feedback returns the folded open-note set; keep only notes client-side.
+    openNotes(list) {
+      return (list || []).filter(f => !f.type || f.type === 'note');
     },
 
     timeAgo(ts) {
@@ -700,7 +705,7 @@ function peelApp() {
       const note = (this.noteText || (this.$refs.note ? this.$refs.note.value : '')).trim();
       if (!q || !note) return;
       const [sl, el] = this.lineRangeFor(q);
-      const body = { file: this.current, quote: q, startLine: sl, endLine: el, note };
+      const body = { type: 'note', file: this.current, quote: q, startLine: sl, endLine: el, note };
       const r = await fetch('/api/feedback', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       if (r.ok) { this.noteText = ''; this.selQuote = ''; window.getSelection().removeAllRanges(); this.loadFeedback(); this.refreshTotal(); }
     },
@@ -710,7 +715,7 @@ function peelApp() {
       this.fbAll = false;
       const r = await fetch('/api/feedback?file=' + encodeURIComponent(this.current) + '&t=' + Date.now());
       const j = await r.json();
-      this.feedback = j.feedback || [];
+      this.feedback = this.openNotes(j.feedback);
       this.$nextTick(() => this.applyMarks());
     },
 
@@ -718,7 +723,7 @@ function peelApp() {
       this.fbAll = true;
       const r = await fetch('/api/feedback?t=' + Date.now());
       const j = await r.json();
-      this.feedback = j.feedback || [];
+      this.feedback = this.openNotes(j.feedback);
       this.feedbackTotal = this.feedback.length;
       this.$nextTick(() => this.applyMarks());
     },
@@ -727,7 +732,7 @@ function peelApp() {
       try {
         const r = await fetch('/api/feedback?t=' + Date.now());
         const j = await r.json();
-        this.feedbackTotal = (j.feedback || []).length;
+        this.feedbackTotal = this.openNotes(j.feedback).length;
       } catch (_) { /* ignore */ }
     },
 

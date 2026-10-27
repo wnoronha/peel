@@ -174,7 +174,7 @@
       <div id="feedback">
         <template x-for="f in [...feedback].reverse()" :key="f.id">
           <div class="fb" @click="jumpToFeedback(f)" :title="'Jump to quoted text · L' + f.startLine">
-            <div class="fb-head"><span class="meta" x-text="timeAgo(f.ts)"></span><button class="fb-del" @click.stop="deleteFeedback(f)" title="Delete this note">×</button></div>
+            <div class="fb-head"><span class="meta" x-text="timeAgo(f.ts)"></span><button class="fb-del" @click.stop="deleteFeedback(f)" title="Dismiss note (append tombstone)">×</button></div>
             <div class="meta" x-show="fbAll" x-text="f.file"></div>
             <div class="fb-note" x-text="f.note"></div>
             <blockquote x-text="`“${(f.quote||'').slice(0,300)}”`"></blockquote>
