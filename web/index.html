@@ -224,7 +224,10 @@
 
   <footer data-component="footer">
     <span>peel · <span id="footRoot" x-text="root">docs</span></span>
-    <span><span x-text="sse === 'live' ? '●' : '○'" :style="`color:${sse === 'live' ? 'green' : 'red'}`">●</span> <span x-text="sse === 'live' ? 'live · SSE' : sse + ' · SSE'">live · SSE</span></span>
+    <span title="File watcher for doc reload in this browser. Agents use .peel/feedback.jsonl — not this channel.">
+      <span x-text="sse === 'live' ? '●' : '○'" :style="`color:${sse === 'live' ? 'green' : 'red'}`">●</span>
+      <span x-text="watchLabel">watching · docs</span>
+    </span>
   </footer>
 
   <div id="composer" x-show="composer.open" :style="`left:${composer.x}px;top:${composer.y}px`" @keydown.escape.window="closeComposer()">

@@ -4,7 +4,8 @@ function peelApp() {
   return {
     files: [], tab: 'all', current: null, doc: null, slideIdx: 0, levelIdx: 0, c4Zoom: 1, c4AutoFit: true,
     root: 'docs', query: '', sortKey: 'path', sortDir: 1, userSorted: false, showAll: false,
-    noteText: '', selQuote: '', noteAction: '', feedback: [], feedbackNotes: [], feedbackTotal: 0, fbAll: false, fbStatus: 'open', sse: 'connecting', section: '', slideTitle: '',
+    noteText: '', selQuote: '', noteAction: '', feedback: [], feedbackNotes: [], feedbackTotal: 0, fbAll: false, fbStatus: 'open',
+    sse: 'connecting', lastDocAt: '', nowTick: Date.now(), section: '', slideTitle: '',
     presets: [
       { icon: 'lightbulb', label: 'Explain this', action: 'explain' },
       { icon: 'wrench', label: 'Fix this', action: 'fix' },
@@ -23,6 +24,17 @@ function peelApp() {
 
     typeIcon(t) {
       return t === 'c4' ? '[c4]' : (t === 'deck' ? '[dk]' : '[md]');
+    },
+
+    // Footer: doc watcher status + last open/SSE-reload time (not the agent feedback path).
+    get watchLabel() {
+      void this.nowTick;
+      const st = this.sse === 'live' ? 'watching' : (this.sse || 'connecting');
+      if (!this.lastDocAt) return st + ' · docs';
+      return st + ' · last read ' + this.timeAgo(this.lastDocAt);
+    },
+    markDocRead() {
+      this.lastDocAt = new Date().toISOString();
     },
 
     get crumbs() {
@@ -178,6 +190,7 @@ function peelApp() {
       this.applyInkStroke();
       this.connectSSE();
       this.refreshTotal();
+      setInterval(() => { this.nowTick = Date.now(); }, 15000);
     },
 
     // Resolve stroke color: inkStroke override → CSS var → hard default.
@@ -422,6 +435,7 @@ function peelApp() {
       this.setupSpy();
       this.loadFeedback();
       this.syncURL();
+      this.markDocRead();
     },
 
     setupSpy() {
@@ -1061,6 +1075,7 @@ function peelApp() {
           const m = JSON.parse(e.data);
           if (m.type === 'reload') {
             this.loadFiles();
+            // openFile marks last read — doc watcher only; agents still use feedback.jsonl.
             if (m.path === this.current) this.openFile(this.current);
           }
         } catch (_) { /* ignore */ }
