@@ -10,18 +10,109 @@ import (
 	"time"
 )
 
+// Event types for the append-only feedback log.
+const (
+	FeedbackNote      = "note"
+	FeedbackAck       = "ack"
+	FeedbackTombstone = "tombstone"
+)
+
 type Feedback struct {
 	ID        string `json:"id"`
 	TS        string `json:"ts"`
-	File      string `json:"file"`
-	Quote     string `json:"quote"`
-	StartLine int    `json:"startLine"`
-	EndLine   int    `json:"endLine"`
-	Note      string `json:"note"`
+	Type      string `json:"type,omitempty"` // note | ack | tombstone; empty on read = note
+	Ref       string `json:"ref,omitempty"`  // note id for ack/tombstone
+	File      string `json:"file,omitempty"`
+	Quote     string `json:"quote,omitempty"`
+	StartLine int    `json:"startLine,omitempty"`
+	EndLine   int    `json:"endLine,omitempty"`
+	Note      string `json:"note,omitempty"`
 }
 
 func feedbackPath(root string) string {
 	return filepath.Join(root, ".peel", "feedback.jsonl")
+}
+
+func feedbackType(fb Feedback) string {
+	t := strings.TrimSpace(fb.Type)
+	if t == "" {
+		return FeedbackNote
+	}
+	return t
+}
+
+func (s *Server) appendFeedback(fb Feedback) error {
+	if err := os.MkdirAll(filepath.Join(s.root, ".peel"), 0o755); err != nil {
+		return err
+	}
+	f, err := os.OpenFile(feedbackPath(s.root), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	if err := json.NewEncoder(f).Encode(fb); err != nil {
+		return err
+	}
+	return f.Sync()
+}
+
+func (s *Server) readFeedbackEvents() ([]Feedback, error) {
+	path := feedbackPath(s.root)
+	f, err := os.Open(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	defer f.Close()
+	var out []Feedback
+	sc := bufio.NewScanner(f)
+	sc.Buffer(make([]byte, 1024*1024), 1024*1024)
+	for sc.Scan() {
+		var fb Feedback
+		if err := json.Unmarshal(sc.Bytes(), &fb); err != nil {
+			continue
+		}
+		out = append(out, fb)
+	}
+	return out, sc.Err()
+}
+
+// foldOpenNotes returns note events that have no later ack or tombstone for their id.
+func foldOpenNotes(events []Feedback) []Feedback {
+	closed := map[string]bool{}
+	for _, ev := range events {
+		switch feedbackType(ev) {
+		case FeedbackAck, FeedbackTombstone:
+			if ev.Ref != "" {
+				closed[ev.Ref] = true
+			}
+		}
+	}
+	var out []Feedback
+	for _, ev := range events {
+		if feedbackType(ev) != FeedbackNote {
+			continue
+		}
+		if closed[ev.ID] {
+			continue
+		}
+		if ev.Type == "" {
+			ev.Type = FeedbackNote
+		}
+		out = append(out, ev)
+	}
+	return out
+}
+
+func noteExists(events []Feedback, id string) bool {
+	for _, ev := range events {
+		if feedbackType(ev) == FeedbackNote && ev.ID == id {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *Server) handleFeedbackAdd(w http.ResponseWriter, r *http.Request) {
@@ -30,12 +121,35 @@ func (s *Server) handleFeedbackAdd(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "bad json", http.StatusBadRequest)
 		return
 	}
-	if strings.Contains(fb.File, "..") || fb.File == "" || filepath.IsAbs(fb.File) {
-		http.Error(w, "bad file", http.StatusBadRequest)
-		return
-	}
-	if fb.Note == "" && fb.Quote == "" {
-		http.Error(w, "empty", http.StatusBadRequest)
+
+	t := feedbackType(fb)
+	switch t {
+	case FeedbackNote:
+		if strings.Contains(fb.File, "..") || fb.File == "" || filepath.IsAbs(fb.File) {
+			http.Error(w, "bad file", http.StatusBadRequest)
+			return
+		}
+		if fb.Note == "" && fb.Quote == "" {
+			http.Error(w, "empty", http.StatusBadRequest)
+			return
+		}
+		fb.Type = FeedbackNote
+		fb.Ref = ""
+	case FeedbackAck, FeedbackTombstone:
+		if strings.TrimSpace(fb.Ref) == "" {
+			http.Error(w, "missing ref", http.StatusBadRequest)
+			return
+		}
+		fb.Type = t
+		fb.File = ""
+		fb.Quote = ""
+		fb.StartLine = 0
+		fb.EndLine = 0
+		if t == FeedbackTombstone {
+			fb.Note = ""
+		}
+	default:
+		http.Error(w, "bad type", http.StatusBadRequest)
 		return
 	}
 
@@ -44,21 +158,11 @@ func (s *Server) handleFeedbackAdd(w http.ResponseWriter, r *http.Request) {
 
 	fb.ID = time.Now().UTC().Format("20060102T150405.000000000")
 	fb.TS = time.Now().UTC().Format(time.RFC3339)
-	if err := os.MkdirAll(filepath.Join(s.root, ".peel"), 0o755); err != nil {
-		http.Error(w, "mkdir", 500)
-		return
-	}
-	f, err := os.OpenFile(feedbackPath(s.root), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
-	if err != nil {
-		http.Error(w, "open", 500)
-		return
-	}
-	defer f.Close()
-	if err := json.NewEncoder(f).Encode(fb); err != nil {
+	if err := s.appendFeedback(fb); err != nil {
 		http.Error(w, "write", 500)
 		return
 	}
-	writeJSON(w, map[string]any{"ok": true, "id": fb.ID})
+	writeJSON(w, map[string]any{"ok": true, "id": fb.ID, "type": fb.Type})
 }
 
 func (s *Server) handleFeedbackDelete(w http.ResponseWriter, r *http.Request) {
@@ -71,70 +175,65 @@ func (s *Server) handleFeedbackDelete(w http.ResponseWriter, r *http.Request) {
 	s.feedbackMu.Lock()
 	defer s.feedbackMu.Unlock()
 
-	path := feedbackPath(s.root)
-	f, err := os.Open(path)
+	events, err := s.readFeedbackEvents()
 	if err != nil {
+		http.Error(w, "read", 500)
+		return
+	}
+	if !noteExists(events, id) {
 		writeJSON(w, map[string]any{"ok": true, "deleted": false})
 		return
 	}
-
-	var kept []string
-	deleted := false
-	sc := bufio.NewScanner(f)
-	sc.Buffer(make([]byte, 1024*1024), 1024*1024)
-	for sc.Scan() {
-		line := sc.Bytes()
-		var fb Feedback
-		if err := json.Unmarshal(line, &fb); err == nil && fb.ID == id {
-			deleted = true
-			continue
+	for _, n := range foldOpenNotes(events) {
+		if n.ID == id {
+			fb := Feedback{Type: FeedbackTombstone, Ref: id}
+			fb.ID = time.Now().UTC().Format("20060102T150405.000000000")
+			fb.TS = time.Now().UTC().Format(time.RFC3339)
+			if err := s.appendFeedback(fb); err != nil {
+				http.Error(w, "write", 500)
+				return
+			}
+			writeJSON(w, map[string]any{"ok": true, "deleted": true})
+			return
 		}
-		kept = append(kept, string(line))
 	}
-	f.Close()
-
-	if !deleted {
-		writeJSON(w, map[string]any{"ok": true, "deleted": false})
-		return
-	}
-
-	tmp := path + ".tmp"
-	body := strings.Join(kept, "\n")
-	if len(kept) > 0 {
-		body += "\n"
-	}
-	if err := os.WriteFile(tmp, []byte(body), 0o644); err != nil {
-		http.Error(w, "write", 500)
-		return
-	}
-	if err := os.Rename(tmp, path); err != nil {
-		http.Error(w, "rename", 500)
-		return
-	}
-	writeJSON(w, map[string]any{"ok": true, "deleted": true})
+	// Note exists but already closed.
+	writeJSON(w, map[string]any{"ok": true, "deleted": false})
 }
 
 func (s *Server) handleFeedbackList(w http.ResponseWriter, r *http.Request) {
 	file := r.URL.Query().Get("file")
-	path := feedbackPath(s.root)
-	f, err := os.Open(path)
+	all := r.URL.Query().Get("all") == "1" || r.URL.Query().Get("all") == "true"
+
+	events, err := s.readFeedbackEvents()
 	if err != nil {
-		writeJSON(w, map[string]any{"feedback": []Feedback{}})
+		http.Error(w, "read", 500)
 		return
 	}
-	defer f.Close()
+
 	var out []Feedback
-	sc := bufio.NewScanner(f)
-	sc.Buffer(make([]byte, 1024*1024), 1024*1024)
-	for sc.Scan() {
-		var fb Feedback
-		if err := json.Unmarshal(sc.Bytes(), &fb); err != nil {
-			continue
+	if all {
+		// Raw event log (agents). Optional file= filters to note events for that path.
+		if file == "" {
+			out = events
+		} else {
+			for _, ev := range events {
+				if feedbackType(ev) == FeedbackNote && ev.File == file {
+					out = append(out, ev)
+				}
+			}
 		}
-		if file != "" && fb.File != file {
-			continue
+	} else {
+		out = foldOpenNotes(events)
+		if file != "" {
+			filtered := out[:0]
+			for _, ev := range out {
+				if ev.File == file {
+					filtered = append(filtered, ev)
+				}
+			}
+			out = filtered
 		}
-		out = append(out, fb)
 	}
 	if out == nil {
 		out = []Feedback{}
