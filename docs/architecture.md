@@ -101,3 +101,7 @@ Portable skill: [`skills/peel/`](../skills/peel/SKILL.md) (`peel_api.py` over st
 ![Shell](assets/shell-doc.png)
 
 ![Goto Anything](assets/goto.png)
+
+![C4 context](assets/c4.png)
+
+![Agent working](assets/agent-working.png)

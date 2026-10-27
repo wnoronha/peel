@@ -9,6 +9,8 @@ Select text in the reader (docs, decks, or C4 labels), or **click** a C4 box/Rel
 2. Pick a chip (**Fix this**, **Explain this**, **Add example**, **Simplify this**, **Question**) or type freely.
 3. Press `⌘↵` / `Ctrl↵` or click **Save** (compact button in the composer / Feedback card).
 
+![Composer on selection](assets/annotate.png)
+
 Saving needs a quote and a note. Closing without save drops the draft. There is no separate **Annotate** nav button — use selection/click and review in Feedback (`]`).
 
 ## Review
@@ -24,6 +26,8 @@ Open **Feedback** (`]`). Tabs:
 
 **This file** vs **All files** filters the list. Click a row to jump toward the quote. Click `×` to dismiss (tombstone), not hard-delete.
 
+![Feedback drawer](assets/feedback-drawer.png)
+
 ## Activity toasts
 
 Bottom-right toasts fire on SSE `feedback` / `reload` for the open file:
@@ -34,6 +38,14 @@ Bottom-right toasts fire on SSE `feedback` / `reload` for the open file:
 | Tombstone | “Note dismissed” |
 | Remote note | “New note · …” (own saves are quiet briefly) |
 | Doc reload | “Doc updated · path” |
+
+![Toast](assets/toast.png)
+
+## Agent pulse
+
+When an agent calls `peel_api.py busy "…"`, the peel mark pulses and a short status chip appears next to the logo. `ack` / `idle` clears it.
+
+![Agent working](assets/agent-working.png)
 
 ## Agent side
 
@@ -51,7 +63,3 @@ Each save appends one JSON line under `<root>/.peel/feedback.jsonl`. Prefer [`sk
 | `startLine`, `endLine` | Best-effort source lines |
 
 Prefer `quote` (or `c4Id` / Rel endpoints) when lines drift.
-
-## Screenshots
-
-![Annotate panel](assets/annotate-panel.png)

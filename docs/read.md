@@ -11,6 +11,8 @@ make build
 
 Open `http://127.0.0.1:18124/`. You get Files, the hub [[index]], and empty side panels until you annotate.
 
+![Shell](assets/shell-doc.png)
+
 Fixture alternative (search-domain sample):
 
 ```sh
@@ -22,6 +24,8 @@ Fixture alternative (search-domain sample):
 Click a file or press `Ctrl-P` / `Ctrl-K` (`Cmd` on macOS) to open **Goto Anything**. Type a few letters, ↑↓ to move, Enter to open. Use **Files**, **Decks**, or **C4** in the top bar for the left drawer tabs.
 
 ![Goto Anything](assets/goto.png)
+
+![Files drawer](assets/drawer-files.png)
 
 Worth opening once: [[use-cases]], [[deck-peel-tour]], [[c4-peel]], [[deck-c4]].
 

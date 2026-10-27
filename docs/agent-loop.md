@@ -89,7 +89,12 @@ C4 example anchors: `"c4Id":"reader-peel","c4From":"reader","c4To":"peel","level
 | Feedback → **Open** | Work queue; peach marks on quotes |
 | Feedback → **Acked** | Your `ack` text as `ack: …` |
 | Toast (bottom-right) | Agent finished / note dismissed / doc updated |
+| Logo pulse | `busy` → amber peel mark + status chip |
 | Reader | Live reload after source edits |
+
+![Agent working](assets/agent-working.png)
+
+![Toast](assets/toast.png)
 
 No chat thread — one note, one close.
 

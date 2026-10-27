@@ -14,7 +14,7 @@ Open this folder with peel and you are dogfooding the product.
 |---|---|
 | Five-minute tour | [[deck-peel-tour]] |
 | Why peel exists | [[use-cases]] · [[deck-use-cases]] |
-| Architecture as a model | [[c4-peel]] · [[deck-c4]] |
+| Architecture as a model | [[deck-c4]] (walkthrough) · [[c4-peel]] |
 | Agent review loop | [[agent-loop]] |
 | Hands-on first note | [[read]] |
 
@@ -32,3 +32,13 @@ Open this folder with peel and you are dogfooding the product.
 ## Showcase tip
 
 Walk a visitor through [[deck-peel-tour]], then [[c4-peel]] (click a Rel, double-click a box), then leave one open note and show Feedback (open / acked / dismissed) plus a toast when the agent acks. That is the product in three minutes.
+
+## UI at a glance
+
+![Shell](assets/shell-doc.png)
+
+![C4](assets/c4.png)
+
+![Composer](assets/annotate.png)
+
+![Agent pulse](assets/agent-working.png)
