@@ -19,7 +19,9 @@ Fixture alternative (search-domain sample):
 
 ## Read a page
 
-Click a file or press `Ctrl-P` / `Cmd-P` (Goto Anything). Use **Files**, **Decks**, or **C4** in the top bar for the left drawer tabs.
+Click a file or press `Ctrl-P` / `Ctrl-K` (`Cmd` on macOS) to open **Goto Anything**. Type a few letters, ↑↓ to move, Enter to open. Use **Files**, **Decks**, or **C4** in the top bar for the left drawer tabs.
+
+![Goto Anything](assets/goto.png)
 
 Worth opening once: [[use-cases]], [[deck-peel-tour]], [[c4-peel]].
 

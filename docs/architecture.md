@@ -16,6 +16,8 @@ The frontmatter or extension picks the view. Plain `.md` renders as a doc. `marp
 
 ## Client
 
-`web/app.js` is one Alpine component, `peelApp`. It fetches `/api/files` and `/api/doc`, keeps selection quotes, posts feedback, and syncs `?file=`, `&slide=`, and `&level=` into the URL. `Ctrl/Cmd-P` opens a centered Goto Anything palette with fuzzy path matching. Diagrams render client side with the vendored `pele` bundle (`web/vendor/pele.global.js`), which parses mermaid syntax to inline SVG. Title strips, scroll-spy, drill-down, and zoom are plain DOM code around those SVGs.
+`web/app.js` is one Alpine component, `peelApp`. It fetches `/api/files` and `/api/doc`, keeps selection quotes, posts feedback, and syncs `?file=`, `&slide=`, and `&level=` into the URL. `Ctrl/Cmd-P` or `Ctrl/Cmd-K` opens a centered Goto Anything palette with fuzzy path matching. Diagrams render client side with the vendored `pele` bundle (`web/vendor/pele.global.js`), which parses mermaid syntax to inline SVG. Title strips, scroll-spy, drill-down, and zoom are plain DOM code around those SVGs.
 
 ![Shell](assets/shell-doc.png)
+
+![Goto Anything](assets/goto.png)

@@ -34,5 +34,3 @@ Notes may carry `headingId`, `slide`, `level`, `levelKind`, and line ranges so a
 ## Screenshots
 
 ![Annotate panel](assets/annotate-panel.png)
-
-(Regenerate screenshots after UI polish — the drawer status tabs are newer than this asset.)

@@ -32,7 +32,7 @@ Open `http://127.0.0.1:18124/?file=architecture.md`.
 | Key | Action |
 |---|---|
 | `Ctrl-P` / `Cmd-P` | Open Goto Anything (jump to file) |
-| `Ctrl-K` / `Cmd-K` | Open Goto Anything (same as `P`) |
+| `Ctrl-K` / `Cmd-K` | Open Goto Anything (same as P) |
 | `[` | Toggle files sidebar |
 | `]` | Toggle feedback drawer |
 | `←` / `→` | Previous / next slide or C4 level |

@@ -81,7 +81,7 @@ Stories: [[use-cases]].
 
 | Key | Action |
 |---|---|
-| `Ctrl/Cmd-P` | Goto Anything |
+| `Ctrl/Cmd-P` or `K` | Goto Anything |
 | `[` `]` | Files / Feedback |
 | `←` `→` | Slide or C4 level |
 | `⌘↵` | Save composer |
