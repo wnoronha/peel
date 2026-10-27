@@ -154,9 +154,15 @@ pre.diagram{background:transparent}
 #feedback .fb .meta{color:var(--color-text-weak);font-size:12px}
 .fb{cursor:pointer}
 .fb:hover{border-color:var(--color-text-weak)}
+.fb.fb-acked,.fb.fb-dismissed{opacity:.72}
+.fb.fb-acked .fb-note,.fb.fb-dismissed .fb-note{font-weight:400;color:var(--color-text)}
+.fb-status{text-transform:uppercase;letter-spacing:.04em;font-size:11px;color:var(--color-text-strong)}
+.fb-acked .fb-status{color:var(--color-success)}
+.fb-dismissed .fb-status{color:var(--color-text-weak)}
 .fb-head{display:flex;justify-content:space-between;align-items:center}
 .fb-del{background:none;border:0;color:var(--color-text-weak);font-size:15px;cursor:pointer;padding:0 2px;line-height:1}
 .fb-del:hover{color:var(--color-text-strong)}
+.fb-acked .fb-del,.fb-dismissed .fb-del{display:none}
 .fb-note{color:var(--color-text-strong);margin:4px 0;font-weight:500}
 .fb blockquote{margin:6px 0;padding-left:10px;border-left:2px solid var(--color-border);color:var(--color-text-weak);display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
 .fb-flash{animation:fbflash 1.2s ease-out}

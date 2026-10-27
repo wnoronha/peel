@@ -4,7 +4,7 @@ function peelApp() {
   return {
     files: [], tab: 'all', current: null, doc: null, slideIdx: 0, levelIdx: 0, c4Zoom: 1, c4AutoFit: true,
     root: 'docs', query: '', sortKey: 'path', sortDir: 1, userSorted: false, showAll: false,
-    noteText: '', selQuote: '', noteAction: '', feedback: [], feedbackTotal: 0, fbAll: false, sse: 'connecting', section: '', slideTitle: '',
+    noteText: '', selQuote: '', noteAction: '', feedback: [], feedbackNotes: [], feedbackTotal: 0, fbAll: false, fbStatus: 'open', sse: 'connecting', section: '', slideTitle: '',
     presets: [
       { icon: 'lightbulb', label: 'Explain this', action: 'explain' },
       { icon: 'wrench', label: 'Fix this', action: 'fix' },
@@ -664,9 +664,53 @@ function peelApp() {
       if (r.ok) { this.composerNote = ''; this.composerAction = ''; this.composer.open = false; this.selQuote = ''; window.getSelection().removeAllRanges(); this.loadFeedback(); this.refreshTotal(); }
     },
 
-    // GET /api/feedback returns the folded open-note set; keep only notes client-side.
-    openNotes(list) {
-      return (list || []).filter(f => !f.type || f.type === 'note');
+    // Classify raw log events into notes with status: open | acked | dismissed.
+    classifyNotes(events) {
+      const closes = Object.create(null);
+      for (const ev of events || []) {
+        const t = ev.type || 'note';
+        if ((t === 'ack' || t === 'tombstone') && ev.ref) {
+          closes[ev.ref] = {
+            status: t === 'ack' ? 'acked' : 'dismissed',
+            ts: ev.ts,
+            note: ev.note || '',
+          };
+        }
+      }
+      const out = [];
+      for (const ev of events || []) {
+        const t = ev.type || 'note';
+        if (t !== 'note') continue;
+        const c = closes[ev.id];
+        out.push({
+          ...ev,
+          type: 'note',
+          status: c ? c.status : 'open',
+          closedAt: c ? c.ts : '',
+          closeNote: c ? c.note : '',
+        });
+      }
+      return out;
+    },
+
+    get visibleFeedback() {
+      const st = this.fbStatus || 'open';
+      let list = this.feedbackNotes || [];
+      if (st === 'open') list = list.filter(f => f.status === 'open');
+      else if (st === 'acked') list = list.filter(f => f.status === 'acked');
+      else if (st === 'dismissed') list = list.filter(f => f.status === 'dismissed');
+      return list;
+    },
+
+    fbStatusCount(status) {
+      const list = this.feedbackNotes || [];
+      if (status === 'all') return list.length;
+      return list.filter(f => f.status === status).length;
+    },
+
+    setFbStatus(status) {
+      this.fbStatus = status;
+      this.$nextTick(() => this.applyMarks());
     },
 
     timeAgo(ts) {
@@ -745,17 +789,17 @@ function peelApp() {
     },
 
     async deleteFeedback(f) {
-      if (!f) return;
+      if (!f || f.status !== 'open') return;
       await fetch('/api/feedback?id=' + encodeURIComponent(f.id), { method: 'DELETE' });
-      if (this.fbAll) this.loadAllFeedback(); else this.loadFeedback();
-      this.refreshTotal();
+      await this.reloadFeedback();
     },
 
     applyMarks() {
       const c = this.searchRoot();
       if (!c) return;
       c.querySelectorAll('.fb-mark').forEach(m => m.classList.remove('fb-mark', 'm0', 'm1', 'm2'));
-      const list = this.fbAll ? (this.feedback || []).filter(f => f.file === this.current) : (this.feedback || []);
+      // Only open notes mark the doc — acked/dismissed stay in the list but don't paint.
+      const list = (this.feedbackNotes || []).filter(f => f.status === 'open' && f.file === this.current);
       list.forEach((f, i) => {
         const block = this.findBlockForQuote(f.quote);
         if (block && c.contains(block)) block.classList.add('fb-mark', 'm' + (i % 3));
@@ -773,29 +817,33 @@ function peelApp() {
       if (r.ok) { this.noteText = ''; this.noteAction = ''; this.selQuote = ''; window.getSelection().removeAllRanges(); this.loadFeedback(); this.refreshTotal(); }
     },
 
+    async reloadFeedback() {
+      const r = await fetch('/api/feedback?all=1&t=' + Date.now());
+      const j = await r.json();
+      let notes = this.classifyNotes(j.feedback || []);
+      if (!this.fbAll && this.current) notes = notes.filter(f => f.file === this.current);
+      this.feedbackNotes = notes;
+      this.feedback = notes.filter(f => f.status === 'open');
+      this.feedbackTotal = (this.classifyNotes(j.feedback || [])).filter(f => f.status === 'open').length;
+      this.$nextTick(() => this.applyMarks());
+    },
+
     async loadFeedback() {
       if (!this.current) return;
       this.fbAll = false;
-      const r = await fetch('/api/feedback?file=' + encodeURIComponent(this.current) + '&t=' + Date.now());
-      const j = await r.json();
-      this.feedback = this.openNotes(j.feedback);
-      this.$nextTick(() => this.applyMarks());
+      await this.reloadFeedback();
     },
 
     async loadAllFeedback() {
       this.fbAll = true;
-      const r = await fetch('/api/feedback?t=' + Date.now());
-      const j = await r.json();
-      this.feedback = this.openNotes(j.feedback);
-      this.feedbackTotal = this.feedback.length;
-      this.$nextTick(() => this.applyMarks());
+      await this.reloadFeedback();
     },
 
     async refreshTotal() {
       try {
-        const r = await fetch('/api/feedback?t=' + Date.now());
+        const r = await fetch('/api/feedback?all=1&t=' + Date.now());
         const j = await r.json();
-        this.feedbackTotal = this.openNotes(j.feedback).length;
+        this.feedbackTotal = this.classifyNotes(j.feedback || []).filter(f => f.status === 'open').length;
       } catch (_) { /* ignore */ }
     },
 

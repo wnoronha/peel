@@ -152,9 +152,15 @@
 
     <aside data-component="notes" x-ref="notes" x-show="rightOpen">
       <div class="panel-body">
-      <div data-component="section-head"><span x-text="`Feedback (${feedback.length})`">Feedback</span><button class="mini-btn" @click="toggleRight()" title="Close feedback panel ( ] )" aria-label="Close feedback panel">×</button></div>
-      <div data-component="tabs" role="tablist" style="margin-bottom:12px">
-        <button :class="{active: !fbAll}" @click="loadFeedback()">This file</button><button :class="{active: fbAll}" @click="loadAllFeedback()">All</button>
+      <div data-component="section-head"><span x-text="`Feedback (${fbStatusCount('open')})`">Feedback</span><button class="mini-btn" @click="toggleRight()" title="Close feedback panel ( ] )" aria-label="Close feedback panel">×</button></div>
+      <div data-component="tabs" role="tablist" style="margin-bottom:8px">
+        <button :class="{active: !fbAll}" @click="loadFeedback()">This file</button><button :class="{active: fbAll}" @click="loadAllFeedback()">All files</button>
+      </div>
+      <div data-component="tabs" role="tablist" aria-label="Note status" style="margin-bottom:12px">
+        <button type="button" :class="{active: fbStatus==='open'}" @click="setFbStatus('open')" x-text="`Open (${fbStatusCount('open')})`">Open</button>
+        <button type="button" :class="{active: fbStatus==='acked'}" @click="setFbStatus('acked')" x-text="`Acked (${fbStatusCount('acked')})`">Acked</button>
+        <button type="button" :class="{active: fbStatus==='dismissed'}" @click="setFbStatus('dismissed')" x-text="`Dismissed (${fbStatusCount('dismissed')})`">Dismissed</button>
+        <button type="button" :class="{active: fbStatus==='all'}" @click="setFbStatus('all')" x-text="`All (${fbStatusCount('all')})`">All</button>
       </div>
       <div data-slot="card">
         <div id="selPreview" x-show="selQuote" x-text="selQuote.slice(0, 500)"></div>
@@ -169,16 +175,26 @@
         <textarea id="noteText" x-ref="note" x-model="noteText" placeholder="Select text in the doc, then write a note…"></textarea>
         <button id="saveNote" class="cta secondary" :disabled="!selQuote || !noteText.trim()" @click="saveNote()">Save</button>
       </div>
-      <p class="weak" x-show="!feedback.length && !fbAll" style="font-size:12px;margin:12px 0 0">No notes yet — select text to start.</p>
-      <p class="weak" x-show="!feedback.length && fbAll" style="font-size:12px;margin:12px 0 0">No feedback yet.</p>
+      <p class="weak" x-show="!visibleFeedback.length && fbStatus==='open'" style="font-size:12px;margin:12px 0 0">No open notes — select text to start.</p>
+      <p class="weak" x-show="!visibleFeedback.length && fbStatus==='acked'" style="font-size:12px;margin:12px 0 0">No acked notes yet.</p>
+      <p class="weak" x-show="!visibleFeedback.length && fbStatus==='dismissed'" style="font-size:12px;margin:12px 0 0">No dismissed notes.</p>
+      <p class="weak" x-show="!visibleFeedback.length && fbStatus==='all'" style="font-size:12px;margin:12px 0 0">No feedback yet.</p>
       <div id="feedback">
-        <template x-for="f in [...feedback].reverse()" :key="f.id">
-          <div class="fb" @click="jumpToFeedback(f)" :title="'Jump to quoted text · L' + f.startLine">
-            <div class="fb-head"><span class="meta" x-text="timeAgo(f.ts)"></span><button class="fb-del" @click.stop="deleteFeedback(f)" title="Dismiss note (append tombstone)">×</button></div>
+        <template x-for="f in [...visibleFeedback].reverse()" :key="f.id">
+          <div class="fb" :class="'fb-' + f.status" @click="jumpToFeedback(f)" :title="'Jump to quoted text · L' + f.startLine">
+            <div class="fb-head">
+              <span class="meta">
+                <span class="fb-status" x-text="f.status"></span>
+                <span x-text="' · ' + timeAgo(f.ts)"></span>
+              </span>
+              <button type="button" class="fb-del" @click.stop="deleteFeedback(f)" title="Dismiss note (append tombstone)" :hidden="f.status!=='open'" :aria-hidden="f.status!=='open'">×</button>
+            </div>
             <div class="meta" x-show="fbAll" x-text="f.file"></div>
             <div class="meta" x-show="f.action" x-text="f.action"></div>
             <div class="fb-note" x-text="f.note"></div>
             <blockquote x-text="`“${(f.quote||'').slice(0,300)}”`"></blockquote>
+            <div class="meta" x-show="f.status!=='open' && f.closeNote" x-text="'ack: ' + f.closeNote"></div>
+            <div class="meta" x-show="f.status!=='open' && f.closedAt" x-text="f.status + ' ' + timeAgo(f.closedAt)"></div>
             <div class="meta" x-text="[f.headingId ? '#' + f.headingId : '', f.slide ? 'slide ' + f.slide : '', f.level ? ((f.levelKind || 'level') + ' ' + f.level) : '', (f.startLine || f.endLine) ? ('L' + f.startLine + '–' + f.endLine) : ''].filter(Boolean).join(' · ')"></div>
           </div>
         </template>
