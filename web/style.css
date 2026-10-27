@@ -202,7 +202,12 @@ table[data-component="rankings"] td.type{text-align:center;color:var(--color-tex
 .cmp-quote{color:var(--color-text-weak);font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-right:20px;margin-bottom:8px}
 #composer textarea{width:100%;min-height:80px;font:inherit;background:var(--color-background-weak);border:1px solid var(--color-border-weak);color:var(--color-text-strong);border-radius:var(--radius-sm);padding:12px;line-height:1.6}
 #composer textarea:focus{outline:none;background:var(--color-background);border-color:var(--color-text-strong)}
-.cmp-bar{display:flex;justify-content:space-between;align-items:center;margin-top:8px}
+.cmp-bar{display:flex;justify-content:space-between;align-items:center;margin-top:8px;gap:8px}
+.cmp-bar .weak{font-size:12px}
+/* Compact Save in floating + panel comment boxes (not the global 36px CTA) */
+#composer .cta,#notes #saveNote,.cmp-bar .cta{
+  height:28px;padding:0 12px;font-size:13px;line-height:1;gap:4px;border-radius:var(--radius-sm)
+}
 /* C4 mode — Linear-style level select, OpenCode flat chrome */
 #c4bar{display:flex;gap:12px;align-items:center;padding:8px 14px;margin:0 0 16px;background:var(--color-background-weak);border:1px solid var(--color-border-weak);border-radius:var(--radius-none);position:sticky;top:calc(var(--header-h) + 8px);z-index:5}
 .c4-level{position:relative;min-width:0;max-width:min(420px,60vw)}
