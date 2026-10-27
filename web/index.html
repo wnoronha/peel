@@ -160,7 +160,7 @@
         <div id="selPreview" x-show="selQuote" x-text="selQuote.slice(0, 500)"></div>
         <div class="chips">
           <template x-for="p in presets" :key="p.label">
-            <button class="chip" @click="quickNote(p.label)" :title="p.label" :aria-label="p.label">
+            <button class="chip" @click="quickNote(p)" :title="p.label" :aria-label="p.label">
               <svg class="chip-ico" aria-hidden="true"><use :href="'#lucide-' + p.icon"></use></svg>
               <span class="lbl" x-text="p.label"></span>
             </button>
@@ -176,6 +176,7 @@
           <div class="fb" @click="jumpToFeedback(f)" :title="'Jump to quoted text · L' + f.startLine">
             <div class="fb-head"><span class="meta" x-text="timeAgo(f.ts)"></span><button class="fb-del" @click.stop="deleteFeedback(f)" title="Dismiss note (append tombstone)">×</button></div>
             <div class="meta" x-show="fbAll" x-text="f.file"></div>
+            <div class="meta" x-show="f.action" x-text="f.action"></div>
             <div class="fb-note" x-text="f.note"></div>
             <blockquote x-text="`“${(f.quote||'').slice(0,300)}”`"></blockquote>
             <div class="meta" x-text="`L${f.startLine}–${f.endLine}`"></div>
@@ -196,7 +197,7 @@
     <div class="cmp-quote" x-text="composerQuote"></div>
     <div class="chips">
       <template x-for="p in presets" :key="p.label">
-        <button class="chip" @click="quickComposer(p.label)" :title="p.label" :aria-label="p.label">
+        <button class="chip" @click="quickComposer(p)" :title="p.label" :aria-label="p.label">
           <svg class="chip-ico" aria-hidden="true"><use :href="'#lucide-' + p.icon"></use></svg>
           <span class="lbl" x-text="p.label"></span>
         </button>

@@ -27,6 +27,11 @@ type Feedback struct {
 	StartLine int    `json:"startLine,omitempty"`
 	EndLine   int    `json:"endLine,omitempty"`
 	Note      string `json:"note,omitempty"`
+	Action    string `json:"action,omitempty"` // fix|explain|example|simplify|question
+}
+
+var allowedActions = map[string]bool{
+	"fix": true, "explain": true, "example": true, "simplify": true, "question": true,
 }
 
 func feedbackPath(root string) string {
@@ -133,6 +138,10 @@ func (s *Server) handleFeedbackAdd(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "empty", http.StatusBadRequest)
 			return
 		}
+		if fb.Action != "" && !allowedActions[fb.Action] {
+			http.Error(w, "bad action", http.StatusBadRequest)
+			return
+		}
 		fb.Type = FeedbackNote
 		fb.Ref = ""
 	case FeedbackAck, FeedbackTombstone:
@@ -145,6 +154,7 @@ func (s *Server) handleFeedbackAdd(w http.ResponseWriter, r *http.Request) {
 		fb.Quote = ""
 		fb.StartLine = 0
 		fb.EndLine = 0
+		fb.Action = ""
 		if t == FeedbackTombstone {
 			fb.Note = ""
 		}

@@ -4,15 +4,15 @@ function peelApp() {
   return {
     files: [], tab: 'all', current: null, doc: null, slideIdx: 0, levelIdx: 0, c4Zoom: 1, c4AutoFit: true,
     root: 'docs', query: '', sortKey: 'path', sortDir: 1, userSorted: false, showAll: false,
-    noteText: '', selQuote: '', feedback: [], feedbackTotal: 0, fbAll: false, sse: 'connecting', section: '', slideTitle: '',
+    noteText: '', selQuote: '', noteAction: '', feedback: [], feedbackTotal: 0, fbAll: false, sse: 'connecting', section: '', slideTitle: '',
     presets: [
-      { icon: 'lightbulb', label: 'Explain this' },
-      { icon: 'wrench', label: 'Fix this' },
-      { icon: 'file-plus', label: 'Add example' },
-      { icon: 'a-large-small', label: 'Simplify this' },
-      { icon: 'circle-help', label: 'Question' },
+      { icon: 'lightbulb', label: 'Explain this', action: 'explain' },
+      { icon: 'wrench', label: 'Fix this', action: 'fix' },
+      { icon: 'file-plus', label: 'Add example', action: 'example' },
+      { icon: 'a-large-small', label: 'Simplify this', action: 'simplify' },
+      { icon: 'circle-help', label: 'Question', action: 'question' },
     ],
-    composer: { open: false, x: 0, y: 0 }, composerNote: '', composerRect: null,
+    composer: { open: false, x: 0, y: 0 }, composerNote: '', composerAction: '', composerRect: null,
     leftOpen: false, rightOpen: false, metaOpen: null,
     goto: { open: false, query: '', idx: 0 },
     gotoHits: [],
@@ -572,7 +572,7 @@ function peelApp() {
         this.composer.open = false;
       }
     },
-    closeComposer() { this.composer.open = false; this.composerNote = ''; },
+    closeComposer() { this.composer.open = false; this.composerNote = ''; this.composerAction = ''; },
 
     applyPreset(cur, preset) {
       const t = (cur || '').trim();
@@ -587,12 +587,18 @@ function peelApp() {
       return preset + ': ' + t;
     },
     quickNote(p) {
-      this.noteText = this.applyPreset(this.$refs.note ? this.$refs.note.value : this.noteText, p);
+      const preset = typeof p === 'string' ? this.presets.find(x => x.label === p) : p;
+      const label = preset ? preset.label : p;
+      if (preset && preset.action) this.noteAction = preset.action;
+      this.noteText = this.applyPreset(this.$refs.note ? this.$refs.note.value : this.noteText, label);
       this.$nextTick(() => this.$refs.note && this.$refs.note.focus());
     },
     quickComposer(p) {
+      const preset = typeof p === 'string' ? this.presets.find(x => x.label === p) : p;
+      const label = preset ? preset.label : p;
+      if (preset && preset.action) this.composerAction = preset.action;
       const box = document.querySelector('#composer textarea');
-      this.composerNote = this.applyPreset(this.composerNote || (box ? box.value : ''), p);
+      this.composerNote = this.applyPreset(this.composerNote || (box ? box.value : ''), label);
       this.$nextTick(() => box && box.focus());
     },
 
@@ -613,8 +619,9 @@ function peelApp() {
       if (!this.selQuote || !note) return;
       const [sl, el] = this.lineRangeFor(this.selQuote);
       const body = { type: 'note', file: this.current, quote: this.selQuote, startLine: sl, endLine: el, note: this.composerNote.trim() };
+      if (this.composerAction) body.action = this.composerAction;
       const r = await fetch('/api/feedback', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-      if (r.ok) { this.composerNote = ''; this.composer.open = false; this.selQuote = ''; window.getSelection().removeAllRanges(); this.loadFeedback(); this.refreshTotal(); }
+      if (r.ok) { this.composerNote = ''; this.composerAction = ''; this.composer.open = false; this.selQuote = ''; window.getSelection().removeAllRanges(); this.loadFeedback(); this.refreshTotal(); }
     },
 
     // GET /api/feedback returns the folded open-note set; keep only notes client-side.
@@ -706,8 +713,9 @@ function peelApp() {
       if (!q || !note) return;
       const [sl, el] = this.lineRangeFor(q);
       const body = { type: 'note', file: this.current, quote: q, startLine: sl, endLine: el, note };
+      if (this.noteAction) body.action = this.noteAction;
       const r = await fetch('/api/feedback', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-      if (r.ok) { this.noteText = ''; this.selQuote = ''; window.getSelection().removeAllRanges(); this.loadFeedback(); this.refreshTotal(); }
+      if (r.ok) { this.noteText = ''; this.noteAction = ''; this.selQuote = ''; window.getSelection().removeAllRanges(); this.loadFeedback(); this.refreshTotal(); }
     },
 
     async loadFeedback() {

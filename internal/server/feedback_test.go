@@ -183,6 +183,35 @@ func TestFeedbackValidation(t *testing.T) {
 	if rec.Code != http.StatusBadRequest {
 		t.Errorf("expected 400 for ack without ref, got %d", rec.Code)
 	}
+
+	badAction := []byte(`{"file":"a.md","quote":"q","note":"n","action":"nope"}`)
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest("POST", "/api/feedback", bytes.NewReader(badAction))
+	s.handleFeedbackAdd(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("expected 400 for bad action, got %d", rec.Code)
+	}
+}
+
+func TestFeedbackActionPersisted(t *testing.T) {
+	s := New(t.TempDir())
+	body, _ := json.Marshal(Feedback{File: "a.md", Quote: "q", Note: "Fix this: x", Action: "fix"})
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/feedback", bytes.NewReader(body))
+	s.handleFeedbackAdd(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rec.Code)
+	}
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest("GET", "/api/feedback", nil)
+	s.handleFeedbackList(rec, req)
+	var listResp struct {
+		Feedback []Feedback `json:"feedback"`
+	}
+	_ = json.Unmarshal(rec.Body.Bytes(), &listResp)
+	if len(listResp.Feedback) != 1 || listResp.Feedback[0].Action != "fix" {
+		t.Fatalf("expected action fix, got %+v", listResp.Feedback)
+	}
 }
 
 func TestFoldOpenNotes(t *testing.T) {
