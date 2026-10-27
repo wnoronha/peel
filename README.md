@@ -43,19 +43,18 @@ Open `http://127.0.0.1:18124/?file=architecture.md`.
 
 1. Drag-select text in any document or diagram label.
 2. Select an action chip or write a note, then click **Save** (`Cmd+Enter`).
-3. Appends structured JSONL to `<root>/.peel/feedback.jsonl`:
-   `{"id","ts","file","quote","startLine","endLine","note"}`
-4. Your coding agent or IDE watches `feedback.jsonl` to apply changes.
-5. Disk writes push via SSE (`/events`), refreshing the document in the browser.
+3. Appends a **note** event to `<root>/.peel/feedback.jsonl` (typed log: note / ack / tombstone).
+4. Your coding agent tails or watches mtime on `feedback.jsonl`, edits the docs, then `POST`s an **ack** with `ref` set to the note id.
+5. Doc edits under the root push via SSE (`/events`) and refresh the browser. See `docs/feedback-contract.md`.
 
 ## API
 
 - `GET /api/files` → `{root, files: [{path,name,type,title,size,modTime,words,links,backlinks}]}`
 - `GET /api/doc?path=a.md` → `{path,title,type,isDeck,isC4,raw,body,html,slides[],levels[],outline[],backlinks[]}`
-- `GET /api/feedback?file=a.md` → `{feedback: []}`
-- `POST /api/feedback` → appends entry
-- `DELETE /api/feedback?id=<id>` → removes entry by id
-- `GET /events` → Server-Sent Events (`{type:"reload", path}`)
+- `GET /api/feedback?file=a.md` → open notes (folded); `?all=1` for raw log
+- `POST /api/feedback` → append note, ack, or tombstone
+- `DELETE /api/feedback?id=<id>` → tombstone an open note
+- `GET /events` → Server-Sent Events (`{type:"reload", path}`) for doc changes
 - `GET /healthz` → `ok` (status 200)
 
 ## Build

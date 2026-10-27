@@ -32,15 +32,21 @@ Titles resolve as frontmatter `title`, then first markdown heading, then filenam
 
 ## `GET /api/feedback?file=overview.md`
 
-Lists feedback entries in file order. Omit `file` to list every entry across files. The full entry contract is in `feedback-contract.md`.
+Returns the **folded open-note set** (notes without a later ack or tombstone). Omit `file` for every open note. Pass `all=1` for the raw event log. Full contract: `feedback-contract.md`.
 
 ## `POST /api/feedback`
 
-Appends one entry. The body needs `file` plus a `note`, a `quote`, or both. `startLine` and `endLine` are optional. Returns `{ok: true, id}`. Missing file returns 400, empty note and quote returns 400.
+Appends one event (`fsync`).
 
-## `DELETE /api/feedback?id=<id>`
+- **note** (default): `file` plus `note` and/or `quote`. Optional `action`, `startLine`/`endLine`, `headingId`, `slide`, `level`, `levelKind`.
+- **ack**: `{ "type": "ack", "ref": "<note-id>", "note": "…" }`
+- **tombstone**: `{ "type": "tombstone", "ref": "<note-id>" }`
 
-Removes the entry with that id by rewriting the file. Always returns `{ok: true, deleted}` with whether a line matched.
+Returns `{ok: true, id, type}`. Bad file/type/action/ref → 400.
+
+## `DELETE /api/feedback?id=<note-id>`
+
+Appends a **tombstone** for an open note (does not rewrite the log). Returns `{ok: true, deleted}` (`deleted` false if missing or already closed).
 
 ## `GET /events`
 

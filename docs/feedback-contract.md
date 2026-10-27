@@ -1,21 +1,60 @@
 # Feedback contract spec
 
-Agents read `<root>/.peel/feedback.jsonl`. One JSON object per line, appended on every save, never edited in place. Delete rewrites the file without the matching line.
+Agents read `<root>/.peel/feedback.jsonl`. One JSON object per line. The file is an **append-only event log**: notes, acks, and tombstones. Never edit prior lines by hand. Only the server writes, through `POST` / `DELETE` on `/api/feedback`, so `id` and `ts` stay server-ordered. Watch the file (tail or mtime) or poll the API.
 
-## Entry
+## Event types
+
+| `type` | Meaning |
+|--------|---------|
+| `note` | Human annotation (default when `type` is missing — legacy lines) |
+| `ack` | Agent or human handled a note; `ref` is the note `id` |
+| `tombstone` | Note dismissed; `ref` is the note `id` (replaces rewrite-delete) |
+
+**Open notes** = `note` events with no later `ack` or `tombstone` for that `id`. `GET /api/feedback` returns the folded open set. `GET /api/feedback?all=1` returns the raw log.
+
+## Note event
 
 ```json
-{ "id": "20261025T210527.342062449", "ts": "2026-10-25T21:05:27Z",
+{ "type": "note", "id": "20261025T210527.342062449", "ts": "2026-10-25T21:05:27Z",
   "file": "overview.md", "quote": "How web search works",
-  "startLine": 3, "endLine": 3, "note": "Fix this: stale number" }
+  "startLine": 3, "endLine": 3, "action": "fix",
+  "note": "Fix this: stale number",
+  "headingId": "how-web-search-works" }
 ```
 
-`id` is the server timestamp at write time and is unique per entry. `ts` is RFC 3339. `file` is the path relative to the docs root. `quote` is the selected text verbatim, up to 2000 characters. `startLine` is the 1-based source line where the quote starts, `endLine` where it ends; both are `0` when the quote cannot be mapped. `note` is the human text, usually prefixed with a quick action such as `Fix this: `.
+- `id` — server timestamp at write; unique per event  
+- `ts` — RFC 3339 UTC  
+- `file` — path relative to the docs root  
+- `quote` — selected text (prefer this when matching after edits)  
+- `startLine` / `endLine` — 1-based source hints; `0` if unmapped  
+- `action` — optional chip intent: `fix` | `explain` | `example` | `simplify` | `question`  
+- `note` — free text  
+- Anchors (optional): `headingId` (markdown), `slide` (1-based deck), `level` + `levelKind` (C4)
+
+## Ack event
+
+```json
+{ "type": "ack", "id": "20261025T211000.000000001", "ts": "2026-10-25T21:10:00Z",
+  "ref": "20261025T210527.342062449", "note": "updated the number" }
+```
+
+Agents `POST` this after applying a note. Do not hand-edit the jsonl file.
+
+## Tombstone event
+
+```json
+{ "type": "tombstone", "id": "20261025T211500.000000002", "ts": "2026-10-25T21:15:00Z",
+  "ref": "20261025T210527.342062449" }
+```
+
+Emitted by `DELETE /api/feedback?id=<note-id>` when the note is still open.
 
 ## Reading
 
-Watch the file for appends or poll `GET /api/feedback` with no `file` param for every entry across files. Entries for a deleted file stay in the log. Treat `file` plus `startLine` as a hint, and match on `quote` text, because edits shift lines.
+- Open backlog: `GET /api/feedback` or `?file=path`  
+- Full history: `GET /api/feedback?all=1` or tail the jsonl file  
+- Prefer `quote` (and anchors) over `startLine` after edits. Entries for deleted files stay in the log until tombstoned or acked.
 
 ## Writing
 
-Only the server writes this file, through `POST /api/feedback`. Agents consume it and must not append by hand, so ids and timestamps stay server ordered.
+Only the server appends (and `fsync`s). Clients and agents use the HTTP API.
