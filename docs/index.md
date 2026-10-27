@@ -13,22 +13,22 @@ Open this folder with peel and you are dogfooding the product.
 | You want | Open |
 |---|---|
 | Five-minute tour | [[deck-peel-tour]] |
-| Why peel exists | [[use-cases]] |
-| Architecture as a model | [[c4-peel]] |
+| Why peel exists | [[use-cases]] · [[deck-use-cases]] |
+| Architecture as a model | [[c4-peel]] · [[deck-c4]] |
 | Agent review loop | [[agent-loop]] |
 | Hands-on first note | [[read]] |
 
 ## Modes
 
-- **Docs** — rendered markdown, outline, backlinks, Goto Anything (`Ctrl/Cmd-P` or `K`)
+- **Docs** — rendered markdown, outline, backlinks, Goto Anything (`Ctrl/Cmd-P` or `K`) · [[read]]
 - **Decks** — `marp: true` files split on `---` into focusable slides · [[view-decks]]
-- **C4** — `*.c4` levels with kind icons, zoom, drill-down · [[view-c4]]
-- **Feedback** — select text (or click a C4 shape) → note → `.peel/feedback.jsonl` · [[annotate]]
+- **C4** — `*.c4` levels; click = comment, double-click = drill · [[view-c4]]
+- **Feedback** — select / C4 click → note → `.peel/feedback.jsonl` · [[annotate]]
 
 ## Specs (deep lane)
 
-[[feedback-contract]] · [[api]] · [[c4-format]] · [[architecture]] · [[serve]]
+[[feedback-contract]] · [[api]] · [[c4-format]] · [[architecture]] · [[serve]] · [[decisions]]
 
 ## Showcase tip
 
-Walk a visitor through [[deck-peel-tour]], then [[c4-peel]], then leave one open note on [[use-cases]] and show the Feedback drawer (open / acked / dismissed). That is the product in three minutes.
+Walk a visitor through [[deck-peel-tour]], then [[c4-peel]] (click a Rel, double-click a box), then leave one open note and show Feedback (open / acked / dismissed) plus a toast when the agent acks. That is the product in three minutes.

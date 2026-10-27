@@ -1,6 +1,6 @@
 # peel
 
-CLI to browse markdown docs, slide decks, and C4 architecture models in the browser. Single Go binary, embedded renderer, live reload, and block annotations for agent review loops.
+CLI to browse markdown docs, slide decks, and C4 architecture models in the browser. One Go binary, embedded UI, live reload over SSE, and an append-only feedback log for agent review loops.
 
 ## Usage
 
@@ -12,64 +12,68 @@ CLI to browse markdown docs, slide decks, and C4 architecture models in the brow
 ./peel --dir ./docs --port 18124 --host 127.0.0.1
 ./peel /path/to/docs --port 18200
 
-# print version
+# or
+make run
+
 ./peel --version
 ```
 
-Open `http://127.0.0.1:18124/?file=architecture.md`.
+Open `http://127.0.0.1:18124/?file=index.md`. Dogfood docs live under `docs/` (tour: `deck-peel-tour.md`, model: `c4-peel.c4`).
 
 ## Features
 
-- **Format support**: Serves `*.md` docs, Marp slide stacks (`marp: true`), and multi-level `*.c4` diagrams.
-- **C4 Architecture viewer**: `*.c4` files separate levels with `---`. Supports `C4Context`, `C4Container`, `C4Component`, `C4Dynamic`, and `C4Code`. Level dropdown with kind icons, breadcrumbs, zoom, and click-a-box drill-down. Dogfood model: `docs/c4-peel.c4`.
-- **Embedded engine**: Single Go binary embedding all frontend assets. Markdown is parsed server-side via Goldmark; diagrams are rendered client-side via vendored Pele.
-- **Graph & Links**: Resolves `[[wikilinks]]` by basename (anchors and `|labels` supported) and standard Markdown links to local `.md`/`.c4` files (relative to the current doc). External `http(s)` links open in a new tab. Computes backlinks and link counts across both forms.
-- **Real-time live reload**: File watcher pushes disk modifications over Server-Sent Events (`/events`) to reload docs instantly.
-- **Media asset fallback**: Automatically serves local diagram images and media files (`.png`, `.svg`, `.webp`, `.pdf`) referenced in markdown docs.
+- **Docs / decks / C4** in one shell — plain `*.md`, Marp (`marp: true`), multi-level `*.c4`
+- **C4 viewer** — levels split on `---`; click box/Rel to comment (`c4Id` / `c4From`/`c4To`); double-click box to drill; zoom + kind icons
+- **Goto Anything** — `Ctrl/Cmd-P` or `K`; wikilinks + local markdown links; backlinks
+- **Feedback loop** — select text (or C4 click) → chips → Save → `<root>/.peel/feedback.jsonl` (note / ack / tombstone)
+- **Live events** — `GET /events` emits `reload` (doc changes) and `feedback` (note/ack/tombstone); browser toasts + Feedback drawer
+- **Agent skill** — portable `skills/peel/` (`peel_api.py` for health / open / wait-note / ack / pair). Cursor `/peel` is a thin wrapper
 
 ## Keyboard shortcuts
 
 | Key | Action |
 |---|---|
-| `Ctrl-P` / `Cmd-P` | Open Goto Anything (jump to file) |
-| `Ctrl-K` / `Cmd-K` | Open Goto Anything (same as P) |
+| `Ctrl/Cmd-P` or `K` | Goto Anything |
 | `[` | Toggle files sidebar |
 | `]` | Toggle feedback drawer |
 | `←` / `→` | Previous / next slide or C4 level |
 | `Home` / `End` | First / last slide or C4 level |
-| `Esc` | Close Goto palette, blur filter, or close composer |
+| `⌘↵` / `Ctrl↵` | Save composer |
+| `Esc` | Close Goto / composer |
 
 ## Feedback (agent review loop)
 
-1. Drag-select text in any document or diagram label.
-2. Select an action chip or write a note, then click **Save** (`Cmd+Enter`).
-3. Appends a **note** event to `<root>/.peel/feedback.jsonl` (typed log: note / ack / tombstone).
-4. Your coding agent tails or watches mtime on `feedback.jsonl`, edits the docs, then `POST`s an **ack** with `ref` set to the note id.
-5. Doc edits under the root push via SSE (`/events`) and refresh the browser. See `docs/feedback-contract.md`.
+1. Select text or **click** a C4 shape/Rel → chip or free text → **Save**.
+2. Server appends a `note` to `<root>/.peel/feedback.jsonl` and broadcasts SSE `feedback`.
+3. Agent: `skills/peel/peel_api.py pair --timeout 600` (or `wait-note`), edits sources, then `ack <id> "…"`.
+4. Doc edits push SSE `reload`; the ack moves the note to **Acked** and shows a toast.
+
+Contract: `docs/feedback-contract.md`. Playbook: `docs/agent-loop.md`.
 
 ## API
 
-- `GET /api/files` → `{root, files: [{path,name,type,title,size,modTime,words,links,backlinks}]}`
-- `GET /api/doc?path=a.md` → `{path,title,type,isDeck,isC4,raw,body,html,slides[],levels[],outline[],backlinks[]}`
-- `GET /api/feedback?file=a.md` → open notes (folded); `?all=1` for raw log
-- `POST /api/feedback` → append note, ack, or tombstone
-- `DELETE /api/feedback?id=<id>` → tombstone an open note
-- `GET /events` → Server-Sent Events (`{type:"reload", path}`) for doc changes
-- `GET /healthz` → `ok` (status 200)
+| Endpoint | Role |
+|---|---|
+| `GET /api/files` | File list (`type`: doc \| deck \| c4, counts, titles) |
+| `GET /api/doc?path=` | Rendered doc / slides / C4 levels |
+| `GET /api/feedback` | Folded open notes; `?all=1` raw log |
+| `POST /api/feedback` | Append note, ack, or tombstone |
+| `DELETE /api/feedback?id=` | Tombstone an open note |
+| `GET /events` | SSE: `{type:reload\|feedback,…}` |
+| `GET /healthz` | `ok` |
+
+Full reference: `docs/api.md`.
 
 ## Build
 
 ```sh
-# build binary
-make build
-
-# run test suite
+make build   # → ./peel
 make test
 ```
 
 ## Test fixture
 
-`fixtures/google-search/` — 11 docs + 3 decks reverse-engineering Google Search architecture from public sources. Rich wikilinks, Mermaid diagrams, and backlinks.
+`fixtures/google-search/` — sample docs + decks (search architecture).
 
 ```sh
 ./peel --dir fixtures/google-search --port 18125
@@ -77,12 +81,10 @@ make test
 
 ## Credits
 
-- Design tokens, typography, and paper layout inspired by [opencode.ai](https://opencode.ai).
-- Diagram rendering by [Pele](https://github.com/obsidianmd/pele) (Obsidian zero-dependency Mermaid/C4 SVG engine).
-- Client-side interactivity by [Alpine.js](https://alpinejs.dev/).
-- Action-chip icons by [Lucide](https://lucide.dev/) (ISC; vendored subset in `web/vendor/lucide/`).
-- Server-side markdown parsing by [Goldmark](https://github.com/yuin/goldmark).
-- File system event monitoring by [fsnotify](https://github.com/fsnotify/fsnotify).
+- Design tokens inspired by [opencode.ai](https://opencode.ai)
+- Diagrams by [Pele](https://github.com/obsidianmd/pele)
+- UI by [Alpine.js](https://alpinejs.dev/) · icons [Lucide](https://lucide.dev/)
+- Markdown [Goldmark](https://github.com/yuin/goldmark) · watch [fsnotify](https://github.com/fsnotify/fsnotify)
 
 ## License
 

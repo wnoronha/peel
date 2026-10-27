@@ -6,55 +6,48 @@ title: Peel in five minutes
 # Peel in five minutes
 
 One binary. Docs, decks, and C4.
-Notes that agents can finish.
+A note queue agents can finish.
 
 ---
 
 ## The problem
 
-Docs rot. Reviews live in chat.
-Agents can edit files — they need a queue with quotes, not a screenshot in Slack.
+Docs rot. Reviews die in chat.
+Agents can edit files — they need **quotes and ids**, not a Slack screenshot.
 
 ---
 
 ## The bet
 
-Put the queue **next to the doc**.
-Select → note → JSONL → agent → ack → reload.
+Keep the queue **beside the doc**.
 
-See [[agent-loop]].
+```mermaid
+flowchart LR
+  H[Human] -->|select / C4 click| N[Note]
+  N --> L[.peel/feedback.jsonl]
+  L -->|SSE or peel_api| A[Agent]
+  A -->|edit sources| D[Docs root]
+  A -->|POST ack| L
+  D -->|SSE reload| H
+```
+
+Playbook: [[agent-loop]] · Skill: `skills/peel/`
 
 ---
 
-## Three modes, one binary
+## Three modes, one shell
 
-| Mode | Source | Feel |
+| Mode | Source | Interaction |
 |---|---|---|
-| Doc | `*.md` | Read, link, search |
-| Deck | `marp: true` | Present with ←/→ |
-| C4 | `*.c4` | Levels, zoom, drill |
+| Doc | `*.md` | Read, wikilinks, Goto |
+| Deck | `marp: true` | ← / → slides |
+| C4 | `*.c4` | Click = comment, dblclick = drill |
 
 Hub: [[index]] · Model: [[c4-peel]]
 
 ---
 
-## The loop
-
-```mermaid
-flowchart LR
-  S[Select] --> N[Note]
-  N --> L[JSONL]
-  L --> A[Agent]
-  A --> E[Edit]
-  E --> R[Reload]
-  A --> K[Ack]
-```
-
-Full contract: [[feedback-contract]].
-
----
-
-## Notes are events
+## Notes are typed events
 
 ```json
 { "type": "note", "action": "fix", "quote": "…", "note": "…" }
@@ -62,22 +55,31 @@ Full contract: [[feedback-contract]].
 { "type": "tombstone", "ref": "<id>" }
 ```
 
-Open / acked / dismissed — same drawer.
+Drawer: **Open** · **Acked** · **Dismissed** · **All**
+Contract: [[feedback-contract]]
 
 ---
 
-## Jobs peel wins
+## Pair without curl spam
 
-- Architecture review on a C4 model
-- Agent doc-fix loop while reading
-- Onboarding via a deck, deep-links into specs
-- Spec + implementation annotated together
+```sh
+skills/peel/peel_api.py pair --timeout 600
+```
 
-Stories: [[use-cases]].
+One script → health, catch-up, wait, ack.
+Works for **any** coding agent (Cursor `/peel` is only a thin wrapper).
 
 ---
 
-## Keys worth memorizing
+## What you will notice in the UI
+
+- Peach marks on **open** quotes
+- Toast when the agent **acks** (click → Feedback)
+- Toast when the open **doc reloads** after an edit
+
+---
+
+## Keys
 
 | Key | Action |
 |---|---|
@@ -85,6 +87,7 @@ Stories: [[use-cases]].
 | `[` `]` | Files / Feedback |
 | `←` `→` | Slide or C4 level |
 | `⌘↵` | Save composer |
+| Esc | Close composer / Goto |
 
 ---
 
@@ -94,11 +97,12 @@ Stories: [[use-cases]].
 ./peel --dir ./docs --port 18124
 ```
 
-Leave a note on the next slide. Watch Feedback.
+Leave a note on the next deck. Open Feedback.
 
 ---
 
 ## Next
 
-Open [[c4-peel]] and click through levels.
-Then [[agent-loop]] if you wire an agent today.
+1. Walk [[c4-peel]] — or the short [[deck-c4]] first.
+2. Wire [[agent-loop]] with `peel_api.py`.
+3. Skim jobs in [[deck-use-cases]].
