@@ -18,7 +18,7 @@ function peelApp() {
     drawMode: false, inkStrokes: [], inkCurrent: null, inkDrawing: false,
     // Configurable ink stroke; default synth pink (Cyberpunk-style). CSS --color-synth-pink mirrors this.
     inkStroke: '#ff2ecb',
-    c4FocusId: '', c4FocusLabel: '',
+    c4FocusId: '', c4FocusLabel: '', c4FocusFrom: '', c4FocusTo: '',
     leftOpen: false, rightOpen: false, metaOpen: null,
     goto: { open: false, query: '', idx: 0 },
     gotoHits: [],
@@ -543,21 +543,42 @@ function peelApp() {
 
     c4Drill(ev) {
       if (this.doc?.type !== 'c4') return;
+      // Annotate / draw mode: capture node or Rel edge instead of drilling.
+      if (this.drawMode || this.composer.open) {
+        const hit = this.setC4FocusFromEl(ev.target);
+        if (hit) {
+          const q = hit.label || hit.id;
+          this.selQuote = q;
+          this.composerQuote = q.length > 60 ? q.slice(0, 57) + '…' : q;
+          if (!this.composer.open) {
+            const pad = 8;
+            let x = ev.clientX + pad, y = ev.clientY + pad;
+            if (x + 320 > window.innerWidth) x = window.innerWidth - 330;
+            if (y + 180 > window.innerHeight) y = Math.max(10, ev.clientY - 190);
+            this.composer = { open: true, x: Math.max(10, x), y };
+          }
+          return;
+        }
+      }
       const g = ev.target && ev.target.closest ? ev.target.closest('.pele-node') : null;
       if (!g || !g.dataset.id) return;
-      // Annotate / draw mode: capture node identity for agents instead of drilling.
-      if (this.drawMode || this.composer.open) {
-        this.setC4FocusFromNode(g);
-        return;
-      }
       if (this.levelIdx + 1 < (this.doc.levels || []).length) this.showLevel(this.levelIdx + 1);
     },
 
-    clearC4Focus() { this.c4FocusId = ''; this.c4FocusLabel = ''; },
+    clearC4Focus() {
+      this.c4FocusId = '';
+      this.c4FocusLabel = '';
+      this.c4FocusFrom = '';
+      this.c4FocusTo = '';
+    },
+
+    c4LevelSource() {
+      return ((this.doc && this.doc.levels || [])[this.levelIdx] || {}).source || (this.doc && this.doc.body) || '';
+    },
 
     c4LabelForId(id) {
       if (!id || !this.doc) return '';
-      const src = ((this.doc.levels || [])[this.levelIdx] || {}).source || this.doc.body || '';
+      const src = this.c4LevelSource();
       const esc = String(id).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const re = new RegExp(
         '\\b(?:Person|System_Ext|System|ContainerDb|Container_Ext|Container|Component_Ext|Component)\\(\\s*' +
@@ -567,13 +588,57 @@ function peelApp() {
       return m ? m[1] : '';
     },
 
+    // Resolve Rel(from, to, "label") for a Pele edge id like "reader-peel".
+    c4RelInfoForEdgeId(edgeId) {
+      if (!edgeId || !this.doc) return null;
+      const src = this.c4LevelSource();
+      const re = /\bRel(?:_[UDLR])?\(\s*([A-Za-z0-9_-]+)\s*,\s*([A-Za-z0-9_-]+)\s*,\s*"([^"]*)"/g;
+      let m;
+      while ((m = re.exec(src))) {
+        const from = m[1], to = m[2], label = m[3];
+        if (from + '-' + to === edgeId) return { id: edgeId, from, to, label };
+      }
+      // Fallback: split once on first hyphen if ends match known pattern.
+      const i = edgeId.indexOf('-');
+      if (i > 0) {
+        return { id: edgeId, from: edgeId.slice(0, i), to: edgeId.slice(i + 1), label: '' };
+      }
+      return null;
+    },
+
     setC4FocusFromNode(g) {
       if (!g || !g.dataset || !g.dataset.id) return null;
       const id = g.dataset.id;
       const label = this.c4LabelForId(id) || '';
       this.c4FocusId = id;
       this.c4FocusLabel = label;
-      return { id, label };
+      this.c4FocusFrom = '';
+      this.c4FocusTo = '';
+      return { id, label, from: '', to: '' };
+    },
+
+    setC4FocusFromEdge(g) {
+      if (!g || !g.dataset || !g.dataset.id) return null;
+      const id = g.dataset.id;
+      const info = this.c4RelInfoForEdgeId(id) || { id, from: '', to: '', label: '' };
+      let label = (info.label || '').trim();
+      if (!label && g.classList.contains('pele-edge-label')) {
+        label = (g.textContent || '').replace(/\s+/g, ' ').trim();
+      }
+      this.c4FocusId = id;
+      this.c4FocusLabel = label;
+      this.c4FocusFrom = info.from || '';
+      this.c4FocusTo = info.to || '';
+      return { id, label, from: this.c4FocusFrom, to: this.c4FocusTo };
+    },
+
+    setC4FocusFromEl(el) {
+      if (!el || !el.closest) return null;
+      const node = el.closest('.pele-node');
+      if (node) return this.setC4FocusFromNode(node);
+      const edge = el.closest('.pele-edge, .pele-edge-label');
+      if (edge) return this.setC4FocusFromEdge(edge);
+      return null;
     },
 
     captureC4FromSelection() {
@@ -582,8 +647,7 @@ function peelApp() {
       if (!sel || !sel.rangeCount) return null;
       let el = sel.anchorNode;
       el = el && el.nodeType === 3 ? el.parentElement : el;
-      const g = el && el.closest ? el.closest('.pele-node') : null;
-      return this.setC4FocusFromNode(g);
+      return this.setC4FocusFromEl(el);
     },
 
     scrollToId(id) {
@@ -709,8 +773,7 @@ function peelApp() {
       const pt = this.inkPoint(e);
       if (!pt) return;
       this.ensureInkHost();
-      const g = e.target && e.target.closest ? e.target.closest('.pele-node') : null;
-      if (g) this.setC4FocusFromNode(g);
+      this.setC4FocusFromEl(e.target);
       this.inkDrawing = true;
       this.inkCurrent = [pt];
       try { e.target.setPointerCapture && e.target.setPointerCapture(e.pointerId); } catch (_) { /* ignore */ }
@@ -851,9 +914,15 @@ function peelApp() {
       this.$nextTick(() => box && box.focus());
     },
 
-    lineRangeFor(quote, c4Id) {
+    lineRangeFor(quote, c4Id, c4From, c4To) {
       if (!this.doc) return [0, 0];
       const lines = (this.doc.body || '').split('\n');
+      if (c4From && c4To) {
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i];
+          if (/\bRel/.test(line) && line.includes(c4From) && line.includes(c4To)) return [i + 1, i + 1];
+        }
+      }
       if (c4Id) {
         const a = '(' + c4Id + ',';
         const b = '(' + c4Id + ')';
@@ -870,7 +939,7 @@ function peelApp() {
       return [start, start + (quote.match(/\n/g) || []).length];
     },
 
-    // Stable view anchors alongside quote/lines (deck slide, C4 level + node id, md heading id).
+    // Stable view anchors alongside quote/lines (deck slide, C4 level + node/edge id, md heading id).
     feedbackAnchor() {
       const a = {};
       if (!this.doc) return a;
@@ -885,6 +954,8 @@ function peelApp() {
         if (this.c4FocusId) {
           a.c4Id = this.c4FocusId;
           if (this.c4FocusLabel) a.c4Label = this.c4FocusLabel;
+          if (this.c4FocusFrom) a.c4From = this.c4FocusFrom;
+          if (this.c4FocusTo) a.c4To = this.c4FocusTo;
         }
         return a;
       }
@@ -926,7 +997,7 @@ function peelApp() {
       if (anchor.c4Id && (/[«»]|<<|\n/.test(quote) || quote.length > 80)) {
         quote = anchor.c4Label || anchor.c4Id;
       }
-      const [sl, el] = this.lineRangeFor(quote, anchor.c4Id);
+      const [sl, el] = this.lineRangeFor(quote, anchor.c4Id, anchor.c4From, anchor.c4To);
       const body = { type: 'note', file: this.current, quote, startLine: sl, endLine: el, note, ...anchor };
       if (this.composerAction) body.action = this.composerAction;
       if (inkSvg) body.inkSvg = inkSvg;
@@ -1098,7 +1169,7 @@ function peelApp() {
       if (!q || !note) return;
       const anchor = this.feedbackAnchor();
       if (anchor.c4Id && (/[«»]|<<|\n/.test(q) || q.length > 80)) q = anchor.c4Label || anchor.c4Id;
-      const [sl, el] = this.lineRangeFor(q, anchor.c4Id);
+      const [sl, el] = this.lineRangeFor(q, anchor.c4Id, anchor.c4From, anchor.c4To);
       const body = { type: 'note', file: this.current, quote: q, startLine: sl, endLine: el, note, ...anchor };
       if (this.noteAction) body.action = this.noteAction;
       const r = await fetch('/api/feedback', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });

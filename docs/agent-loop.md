@@ -17,7 +17,7 @@ Watch **mtime** or **tail** the jsonl. Polling `GET /api/feedback?all=1` also wo
 ## Handle a note
 
 1. Read new `type: "note"` lines (or open set from `GET /api/feedback`).
-2. Prefer matching on `quote`. Use `file`, `startLine`, and anchors (`headingId`, `slide`, `level`, `levelKind`, `c4Id` / `c4Label`) as hints. On C4, `c4Id` is the source element id (`Person(reader, …)` → `reader`).
+2. Prefer matching on `quote`. Use `file`, `startLine`, and anchors (`headingId`, `slide`, `level`, `levelKind`, `c4Id` / `c4Label` / `c4From` / `c4To`) as hints. On C4, `c4Id` is a node id (`Person(reader, …)` → `reader`) or Rel edge id (`reader-peel`); use `c4From`/`c4To` to find `Rel(reader, peel, "…")`.
 3. Honor `action` when present: `fix` | `explain` | `example` | `simplify` | `question`.
 4. Edit the source under the docs root.
 5. Ack:

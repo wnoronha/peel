@@ -31,7 +31,7 @@ Each save appends one JSON line under `<root>/.peel/feedback.jsonl`. Optional in
 
 ## Anchors
 
-Notes may carry `headingId`, `slide`, `level`, `levelKind`, `c4Id` / `c4Label`, and line ranges so agents can find the quote after edits. On C4 diagrams, select or draw on a box to attach `c4Id` (e.g. `reader`) and a clean label; prefer that over raw SVG selection text. Prefer matching on `quote` / `c4Id` when lines drift.
+Notes may carry `headingId`, `slide`, `level`, `levelKind`, `c4Id` / `c4Label` / `c4From` / `c4To`, and line ranges so agents can find the quote after edits. On C4 diagrams, select or draw on a **box** (`c4Id: reader`) or a **relationship** (`c4Id: reader-peel`, `c4From`/`c4To`, label text). Prefer matching on `c4Id` / Rel endpoints when lines drift.
 
 ## Screenshots
 

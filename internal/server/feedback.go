@@ -35,8 +35,10 @@ type Feedback struct {
 	Slide     int    `json:"slide,omitempty"`     // 1-based deck slide
 	Level     int    `json:"level,omitempty"`     // 1-based C4 level
 	LevelKind string `json:"levelKind,omitempty"` // Context|Container|Component|Code|…
-	C4ID      string `json:"c4Id,omitempty"`      // Pele/C4 element id e.g. reader, peel
-	C4Label   string `json:"c4Label,omitempty"`   // display name from source e.g. "Reader"
+	C4ID      string `json:"c4Id,omitempty"`      // Pele id: node (reader) or edge (reader-peel)
+	C4Label   string `json:"c4Label,omitempty"`   // node name or Rel label e.g. "browses and annotates"
+	C4From    string `json:"c4From,omitempty"`    // Rel source id when c4Id is an edge
+	C4To      string `json:"c4To,omitempty"`      // Rel target id when c4Id is an edge
 	Ink       string `json:"ink,omitempty"`       // relative path e.g. .peel/ink/<id>.svg
 	InkSvg    string `json:"inkSvg,omitempty"`    // create-only; never persisted in jsonl
 }
@@ -70,10 +72,10 @@ func validNoteID(id string) bool {
 	return true
 }
 
-// sanitizeC4ID keeps Pele/C4 element ids (letters, digits, _ -).
+// sanitizeC4ID keeps Pele/C4 element or edge ids (letters, digits, _ -).
 func sanitizeC4ID(id string) string {
 	id = strings.TrimSpace(id)
-	if id == "" || len(id) > 64 {
+	if id == "" || len(id) > 96 {
 		return ""
 	}
 	for _, r := range id {
@@ -248,11 +250,15 @@ func (s *Server) handleFeedbackAdd(w http.ResponseWriter, r *http.Request) {
 		}
 		fb.C4ID = sanitizeC4ID(fb.C4ID)
 		fb.C4Label = strings.TrimSpace(fb.C4Label)
+		fb.C4From = sanitizeC4ID(fb.C4From)
+		fb.C4To = sanitizeC4ID(fb.C4To)
 		if len(fb.C4Label) > 200 {
 			fb.C4Label = fb.C4Label[:200]
 		}
 		if fb.C4ID == "" {
 			fb.C4Label = ""
+			fb.C4From = ""
+			fb.C4To = ""
 		}
 	case FeedbackAck, FeedbackTombstone:
 		if strings.TrimSpace(fb.Ref) == "" {
@@ -271,6 +277,8 @@ func (s *Server) handleFeedbackAdd(w http.ResponseWriter, r *http.Request) {
 		fb.LevelKind = ""
 		fb.C4ID = ""
 		fb.C4Label = ""
+		fb.C4From = ""
+		fb.C4To = ""
 		inkSvg = ""
 		if t == FeedbackTombstone {
 			fb.Note = ""

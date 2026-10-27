@@ -218,9 +218,10 @@ func TestFeedbackActionPersisted(t *testing.T) {
 func TestFeedbackAnchorsPersisted(t *testing.T) {
 	s := New(t.TempDir())
 	body, _ := json.Marshal(Feedback{
-		File: "c4-peel.c4", Quote: "Peel", Note: "n",
+		File: "c4-peel.c4", Quote: "browses and annotates", Note: "n",
 		Level: 1, LevelKind: "Context",
-		C4ID: "peel", C4Label: "Peel",
+		C4ID: "reader-peel", C4Label: "browses and annotates",
+		C4From: "reader", C4To: "peel",
 	})
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/api/feedback", bytes.NewReader(body))
@@ -242,14 +243,17 @@ func TestFeedbackAnchorsPersisted(t *testing.T) {
 	if got.Level != 1 || got.LevelKind != "Context" {
 		t.Fatalf("expected level anchors, got %+v", got)
 	}
-	if got.C4ID != "peel" || got.C4Label != "Peel" {
-		t.Fatalf("expected c4Id/c4Label, got %+v", got)
+	if got.C4ID != "reader-peel" || got.C4Label != "browses and annotates" || got.C4From != "reader" || got.C4To != "peel" {
+		t.Fatalf("expected c4 edge anchors, got %+v", got)
 	}
 }
 
 func TestSanitizeC4ID(t *testing.T) {
 	if sanitizeC4ID("reader") != "reader" || sanitizeC4ID("my-node_1") != "my-node_1" {
 		t.Fatal("valid ids rejected")
+	}
+	if sanitizeC4ID("reader-peel") != "reader-peel" {
+		t.Fatal("edge id rejected")
 	}
 	if sanitizeC4ID("../x") != "" || sanitizeC4ID("a b") != "" {
 		t.Fatal("invalid ids accepted")
