@@ -35,7 +35,7 @@
         <li><a href="#" @click.prevent="openFiles('decks')">Decks</a></li>
         <li><a href="#" @click.prevent="openFiles('c4')">C4</a></li>
         <li><a href="#" @click.prevent="openFeedbackAll()">Feedback <span id="fbCount" x-text="feedbackTotal ? `(${feedbackTotal})` : ''"></span></a></li>
-        <li><a data-slot="cta-button" href="#" @click.prevent="openAnnotate()">✎ Annotate</a></li>
+        <li><a data-slot="cta-button" href="#" @click.prevent="openAnnotate()" :class="{ on: drawMode }" :aria-pressed="drawMode" :title="drawMode ? 'Exit draw mode (Esc)' : 'Annotate: select text, then draw with pen'">✎ Annotate</a></li>
         <li><button class="mini-btn" @click="toggleTheme()" title="Toggle theme" aria-label="Toggle theme">◐</button></li>
       </ul>
     </nav>
@@ -192,7 +192,7 @@
         <textarea id="noteText" x-ref="note" x-model="noteText" placeholder="Select text in the doc, then write a note…"></textarea>
         <button id="saveNote" class="cta secondary" :disabled="!selQuote || !noteText.trim()" @click="saveNote()">Save</button>
       </div>
-      <p class="weak" x-show="!visibleFeedback.length && fbStatus==='open'" style="font-size:12px;margin:12px 0 0">No open notes — select text to start.</p>
+      <p class="weak" x-show="!visibleFeedback.length && fbStatus==='open'" style="font-size:12px;margin:12px 0 0">No open notes — Annotate, select text, then draw or type.</p>
       <p class="weak" x-show="!visibleFeedback.length && fbStatus==='acked'" style="font-size:12px;margin:12px 0 0">No acked notes yet.</p>
       <p class="weak" x-show="!visibleFeedback.length && fbStatus==='dismissed'" style="font-size:12px;margin:12px 0 0">No dismissed notes.</p>
       <p class="weak" x-show="!visibleFeedback.length && fbStatus==='all'" style="font-size:12px;margin:12px 0 0">No feedback yet.</p>
@@ -209,7 +209,9 @@
             <div class="meta" x-show="fbAll" x-text="f.file"></div>
             <div class="meta" x-show="f.action" x-text="f.action"></div>
             <div class="fb-note" x-text="f.note"></div>
+            <img class="fb-ink-thumb" x-show="f.ink" :src="'/api/feedback/ink?id=' + encodeURIComponent(f.id)" alt="ink" width="120" height="64">
             <blockquote x-text="`“${(f.quote||'').slice(0,300)}”`"></blockquote>
+            <div class="meta" x-show="f.ref" x-text="'reply → ' + f.ref"></div>
             <div class="meta" x-show="f.status!=='open' && f.closeNote" x-text="'ack: ' + f.closeNote"></div>
             <div class="meta" x-show="f.status!=='open' && f.closedAt" x-text="f.status + ' ' + timeAgo(f.closedAt)"></div>
             <div class="meta" x-text="[f.headingId ? '#' + f.headingId : '', f.slide ? 'slide ' + f.slide : '', f.level ? ((f.levelKind || 'level') + ' ' + f.level) : '', (f.startLine || f.endLine) ? ('L' + f.startLine + '–' + f.endLine) : ''].filter(Boolean).join(' · ')"></div>
@@ -237,7 +239,11 @@
       </template>
     </div>
     <textarea x-model="composerNote" @keydown.cmd.enter.prevent="saveComposer()" @keydown.ctrl.enter.prevent="saveComposer()" placeholder="Why did you change this?"></textarea>
-    <div class="cmp-bar"><span class="weak">⌘↵ to save</span><button class="cta" @click="saveComposer()">Save</button></div>
+    <div class="cmp-ink">
+      <span class="weak" x-text="drawMode ? (inkStrokes.length ? (inkStrokes.length + ' stroke' + (inkStrokes.length===1?'':'s')) : 'Pen to draw · mouse after select') : 'Annotate to enable pen'"></span>
+      <button type="button" class="mini-btn" @click="clearInkDraft()" :disabled="!inkStrokes.length" title="Clear ink">Clear ink</button>
+    </div>
+    <div class="cmp-bar"><span class="weak">⌘↵ to save</span><button class="cta" @click="saveComposer()" :disabled="!selQuote || (!composerNote.trim() && !inkStrokes.length)">Save</button></div>
   </div>
 
   <div id="goto" x-show="goto.open" x-cloak @click.self="closeGoto()" @keydown.escape.window="goto.open && closeGoto()">

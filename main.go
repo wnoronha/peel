@@ -12,7 +12,7 @@ import (
 )
 
 var (
-	Version   = "v0.1.1"
+	Version   = "v0.1.2"
 	Commit    = "dev"
 	BuildDate = ""
 )
@@ -66,8 +66,16 @@ func main() {
 	server.SetWebFS(sub)
 
 	s := server.New(abs)
+	pidPath := server.DefaultPIDPath(abs)
+	if err := server.WritePID(pidPath); err != nil {
+		fmt.Fprintln(os.Stderr, "pid:", err)
+		os.Exit(1)
+	}
+	defer server.RemovePID(pidPath)
+
 	addr := fmt.Sprintf("%s:%d", *host, *port)
 	fmt.Printf("peel serving %s at http://%s\n", abs, addr)
+	fmt.Printf("peel pid %d → %s\n", os.Getpid(), pidPath)
 	if err := s.Run(addr); err != nil {
 		fmt.Fprintf(os.Stderr, "server error: %v\n", err)
 		os.Exit(1)

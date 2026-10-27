@@ -53,9 +53,15 @@ Content-Type: application/json
 }
 ```
 
+## Ink
+
+Notes may include `"ink": ".peel/ink/<id>.svg"`. Fetch via `GET /api/feedback/ink?id=<id>`. Prefer `quote` + `note` for edits; treat ink as visual context. Reply notes may set `ref` to a parent note id (not separate open-queue items).
+
 ## Human UI
 
-- **Open** — work queue (marks in the doc)
+- **Feedback** — sidebar inbox (`]`)
+- **Annotate** — draw mode (select text, then pen)
+- **Open** — work queue (root notes; marks + ink in the doc)
 - **Acked** — agent finished
 - **Dismissed** — human discarded
 - **All** — full history for the current file scope

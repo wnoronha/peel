@@ -1,14 +1,17 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/fs"
 	"net/http"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/fsnotify/fsnotify"
@@ -93,6 +96,7 @@ func (s *Server) Run(addr string) error {
 	mux.HandleFunc("GET /api/files", s.handleFiles)
 	mux.HandleFunc("GET /api/doc", s.handleDoc)
 	mux.HandleFunc("GET /api/feedback", s.handleFeedbackList)
+	mux.HandleFunc("GET /api/feedback/ink", s.handleFeedbackInk)
 	mux.HandleFunc("POST /api/feedback", s.handleFeedbackAdd)
 	mux.HandleFunc("DELETE /api/feedback", s.handleFeedbackDelete)
 	mux.HandleFunc("GET /events", s.handleEvents)
@@ -122,7 +126,30 @@ func (s *Server) Run(addr string) error {
 		}
 		http.NotFound(w, r)
 	})
-	return http.ListenAndServe(addr, mux)
+
+	srv := &http.Server{Addr: addr, Handler: mux}
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- srv.ListenAndServe()
+	}()
+
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+	select {
+	case err := <-errCh:
+		if err == http.ErrServerClosed {
+			return nil
+		}
+		return err
+	case sig := <-sigCh:
+		fmt.Printf("peel: shutting down (%s)\n", sig)
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := srv.Shutdown(ctx); err != nil {
+			return err
+		}
+		return nil
+	}
 }
 
 func writeJSON(w http.ResponseWriter, v any) {

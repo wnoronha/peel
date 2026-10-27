@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+	"unicode"
 )
 
 // Event types for the append-only feedback log.
@@ -15,13 +16,15 @@ const (
 	FeedbackNote      = "note"
 	FeedbackAck       = "ack"
 	FeedbackTombstone = "tombstone"
+
+	maxInkSVGBytes = 200 * 1024
 )
 
 type Feedback struct {
 	ID        string `json:"id"`
 	TS        string `json:"ts"`
 	Type      string `json:"type,omitempty"` // note | ack | tombstone; empty on read = note
-	Ref       string `json:"ref,omitempty"`  // note id for ack/tombstone
+	Ref       string `json:"ref,omitempty"` // ack/tombstone → note id; note → optional parent note id
 	File      string `json:"file,omitempty"`
 	Quote     string `json:"quote,omitempty"`
 	StartLine int    `json:"startLine,omitempty"`
@@ -32,6 +35,8 @@ type Feedback struct {
 	Slide     int    `json:"slide,omitempty"`     // 1-based deck slide
 	Level     int    `json:"level,omitempty"`     // 1-based C4 level
 	LevelKind string `json:"levelKind,omitempty"` // Context|Container|Component|Code|…
+	Ink       string `json:"ink,omitempty"`    // relative path e.g. .peel/ink/<id>.svg
+	InkSvg    string `json:"inkSvg,omitempty"` // create-only; never persisted in jsonl
 }
 
 var allowedActions = map[string]bool{
@@ -40,6 +45,45 @@ var allowedActions = map[string]bool{
 
 func feedbackPath(root string) string {
 	return filepath.Join(root, ".peel", "feedback.jsonl")
+}
+
+func inkRelPath(id string) string {
+	return filepath.ToSlash(filepath.Join(".peel", "ink", id+".svg"))
+}
+
+func inkAbsPath(root, id string) string {
+	return filepath.Join(root, ".peel", "ink", id+".svg")
+}
+
+func validNoteID(id string) bool {
+	if id == "" || len(id) > 64 {
+		return false
+	}
+	for _, r := range id {
+		if unicode.IsDigit(r) || r == 'T' || r == '.' {
+			continue
+		}
+		return false
+	}
+	return true
+}
+
+func validateInkSVG(svg string) (string, bool) {
+	s := strings.TrimSpace(svg)
+	if s == "" {
+		return "", true
+	}
+	if len(s) > maxInkSVGBytes {
+		return "", false
+	}
+	lower := strings.ToLower(s)
+	if !strings.HasPrefix(lower, "<svg") || !strings.Contains(lower, "</svg>") {
+		return "", false
+	}
+	if strings.Contains(lower, "<script") || strings.Contains(lower, "javascript:") {
+		return "", false
+	}
+	return s, true
 }
 
 func feedbackType(fb Feedback) string {
@@ -88,7 +132,9 @@ func (s *Server) readFeedbackEvents() ([]Feedback, error) {
 	return out, sc.Err()
 }
 
-// foldOpenNotes returns note events that have no later ack or tombstone for their id.
+// foldOpenNotes returns root note events (no parent ref) with no later ack or tombstone.
+// Reply notes (ref set) nest under their parent and are not separate open-queue items.
+// Ack/tombstone of a root also closes that root's reply notes.
 func foldOpenNotes(events []Feedback) []Feedback {
 	closed := map[string]bool{}
 	for _, ev := range events {
@@ -99,10 +145,22 @@ func foldOpenNotes(events []Feedback) []Feedback {
 			}
 		}
 	}
+	// Cascade: closing a root closes replies that ref it.
+	for _, ev := range events {
+		if feedbackType(ev) != FeedbackNote || ev.Ref == "" {
+			continue
+		}
+		if closed[ev.Ref] {
+			closed[ev.ID] = true
+		}
+	}
 	var out []Feedback
 	for _, ev := range events {
 		if feedbackType(ev) != FeedbackNote {
 			continue
+		}
+		if ev.Ref != "" {
+			continue // replies are not open-queue roots
 		}
 		if closed[ev.ID] {
 			continue
@@ -131,6 +189,14 @@ func (s *Server) handleFeedbackAdd(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	inkSvg, inkOK := validateInkSVG(fb.InkSvg)
+	if !inkOK {
+		http.Error(w, "bad ink", http.StatusBadRequest)
+		return
+	}
+	fb.InkSvg = ""
+	fb.Ink = ""
+
 	t := feedbackType(fb)
 	switch t {
 	case FeedbackNote:
@@ -138,16 +204,31 @@ func (s *Server) handleFeedbackAdd(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "bad file", http.StatusBadRequest)
 			return
 		}
-		if fb.Note == "" && fb.Quote == "" {
+		if inkSvg != "" && strings.TrimSpace(fb.Quote) == "" {
 			http.Error(w, "empty", http.StatusBadRequest)
 			return
+		}
+		if strings.TrimSpace(fb.Note) == "" && strings.TrimSpace(fb.Quote) == "" && inkSvg == "" {
+			http.Error(w, "empty", http.StatusBadRequest)
+			return
+		}
+		if strings.TrimSpace(fb.Note) == "" && inkSvg != "" {
+			fb.Note = "Ink mark"
 		}
 		if fb.Action != "" && !allowedActions[fb.Action] {
 			http.Error(w, "bad action", http.StatusBadRequest)
 			return
 		}
+		parentRef := strings.TrimSpace(fb.Ref)
 		fb.Type = FeedbackNote
 		fb.Ref = ""
+		if parentRef != "" {
+			if !validNoteID(parentRef) {
+				http.Error(w, "bad ref", http.StatusBadRequest)
+				return
+			}
+			fb.Ref = parentRef // validated against log under lock below
+		}
 	case FeedbackAck, FeedbackTombstone:
 		if strings.TrimSpace(fb.Ref) == "" {
 			http.Error(w, "missing ref", http.StatusBadRequest)
@@ -163,6 +244,7 @@ func (s *Server) handleFeedbackAdd(w http.ResponseWriter, r *http.Request) {
 		fb.Slide = 0
 		fb.Level = 0
 		fb.LevelKind = ""
+		inkSvg = ""
 		if t == FeedbackTombstone {
 			fb.Note = ""
 		}
@@ -174,13 +256,82 @@ func (s *Server) handleFeedbackAdd(w http.ResponseWriter, r *http.Request) {
 	s.feedbackMu.Lock()
 	defer s.feedbackMu.Unlock()
 
+	if t == FeedbackNote && fb.Ref != "" {
+		events, err := s.readFeedbackEvents()
+		if err != nil {
+			http.Error(w, "read", 500)
+			return
+		}
+		if !noteExists(events, fb.Ref) {
+			http.Error(w, "bad ref", http.StatusBadRequest)
+			return
+		}
+	}
+
 	fb.ID = time.Now().UTC().Format("20060102T150405.000000000")
 	fb.TS = time.Now().UTC().Format(time.RFC3339)
+	if inkSvg != "" && t == FeedbackNote {
+		if err := os.MkdirAll(filepath.Join(s.root, ".peel", "ink"), 0o755); err != nil {
+			http.Error(w, "write", 500)
+			return
+		}
+		if err := os.WriteFile(inkAbsPath(s.root, fb.ID), []byte(inkSvg), 0o644); err != nil {
+			http.Error(w, "write", 500)
+			return
+		}
+		fb.Ink = inkRelPath(fb.ID)
+	}
 	if err := s.appendFeedback(fb); err != nil {
 		http.Error(w, "write", 500)
 		return
 	}
-	writeJSON(w, map[string]any{"ok": true, "id": fb.ID, "type": fb.Type})
+	writeJSON(w, map[string]any{"ok": true, "id": fb.ID, "type": fb.Type, "ink": fb.Ink})
+}
+
+func (s *Server) handleFeedbackInk(w http.ResponseWriter, r *http.Request) {
+	id := r.URL.Query().Get("id")
+	if !validNoteID(id) {
+		http.Error(w, "bad id", http.StatusBadRequest)
+		return
+	}
+
+	s.feedbackMu.Lock()
+	events, err := s.readFeedbackEvents()
+	s.feedbackMu.Unlock()
+	if err != nil {
+		http.Error(w, "read", 500)
+		return
+	}
+
+	var ink string
+	for _, ev := range events {
+		if feedbackType(ev) == FeedbackNote && ev.ID == id {
+			ink = ev.Ink
+			break
+		}
+	}
+	if ink == "" {
+		http.NotFound(w, r)
+		return
+	}
+	// Only serve paths we wrote under .peel/ink/<id>.svg
+	want := inkRelPath(id)
+	if filepath.ToSlash(ink) != want {
+		http.NotFound(w, r)
+		return
+	}
+	data, err := os.ReadFile(inkAbsPath(s.root, id))
+	if err != nil {
+		if os.IsNotExist(err) {
+			http.NotFound(w, r)
+			return
+		}
+		http.Error(w, "read", 500)
+		return
+	}
+	w.Header().Set("Content-Type", "image/svg+xml; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-store")
+	_, _ = w.Write(data)
 }
 
 func (s *Server) handleFeedbackDelete(w http.ResponseWriter, r *http.Request) {

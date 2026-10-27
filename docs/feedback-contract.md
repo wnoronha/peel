@@ -6,11 +6,11 @@ Agents read `<root>/.peel/feedback.jsonl`. One JSON object per line. The file is
 
 | `type` | Meaning |
 |--------|---------|
-| `note` | Human annotation (default when `type` is missing — legacy lines) |
+| `note` | Annotation (default when `type` is missing — legacy lines). Optional `ink` path; optional `ref` to a parent note |
 | `ack` | Agent or human handled a note; `ref` is the note `id` |
 | `tombstone` | Note dismissed; `ref` is the note `id` (replaces rewrite-delete) |
 
-**Open notes** = `note` events with no later `ack` or `tombstone` for that `id`. `GET /api/feedback` returns the folded open set. `GET /api/feedback?all=1` returns the raw log.
+**Open notes** = root `note` events (`ref` empty) with no later `ack` or `tombstone` for that `id`. Ack/tombstone of a root also folds its reply notes. `GET /api/feedback` returns the folded open set. `GET /api/feedback?all=1` returns the raw log.
 
 ## Note event
 
@@ -19,17 +19,22 @@ Agents read `<root>/.peel/feedback.jsonl`. One JSON object per line. The file is
   "file": "overview.md", "quote": "How web search works",
   "startLine": 3, "endLine": 3, "action": "fix",
   "note": "Fix this: stale number",
-  "headingId": "how-web-search-works" }
+  "headingId": "how-web-search-works",
+  "ink": ".peel/ink/20261025T210527.342062449.svg" }
 ```
 
 - `id` — server timestamp at write; unique per event  
 - `ts` — RFC 3339 UTC  
 - `file` — path relative to the docs root  
-- `quote` — selected text (prefer this when matching after edits)  
+- `quote` — selected text (prefer this when matching after edits); required when attaching ink  
 - `startLine` / `endLine` — 1-based source hints; `0` if unmapped  
 - `action` — optional chip intent: `fix` | `explain` | `example` | `simplify` | `question`  
-- `note` — free text  
+- `note` — free text (defaults to `Ink mark` when only ink is sent)  
+- `ink` — optional relative path to an SVG under `.peel/ink/<id>.svg` (never embed SVG in the jsonl line)  
+- `ref` — optional parent note `id` (reply / follow-up ink or text). Reply notes are not open-queue roots  
 - Anchors (optional): `headingId` (markdown), `slide` (1-based deck), `level` + `levelKind` (C4)
+
+Create with optional `inkSvg` in the POST body (SVG string, max 200KB). The server writes the file, sets `ink`, and does not persist `inkSvg` in the log. Fetch SVG via `GET /api/feedback/ink?id=<note-id>`.
 
 ## Ack event
 

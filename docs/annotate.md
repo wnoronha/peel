@@ -1,14 +1,16 @@
 # Annotate a doc
 
-Select text in the reader (docs, decks, or C4 labels). Peel captures the quote, optional anchors, and your note into an append-only log agents can finish.
+Select text in the reader (docs, decks, or C4 labels), optionally draw with a stylus, and save a note agents can finish.
 
 ## Capture
 
-1. Drag-select text — a composer appears near the selection.
-2. Pick a chip (**Fix this**, **Explain this**, **Add example**, **Simplify this**, **Question**) or type freely.
-3. Press `⌘↵` / `Ctrl↵` or click **Save**.
+1. Click **✎ Annotate** to enter draw mode (toggle / Esc to exit). Feedback stays the sidebar inbox — Annotate does not open it.
+2. Drag-select text — a composer appears near the selection.
+3. With draw mode on: **pen** strokes mark the page; **mouse** can draw after a selection (finger still scrolls). Stroke color defaults to synth pink (`#ff2ecb`); override via CSS `--color-synth-pink` or `applyInkStroke('#…')` in the app.
+4. Pick a chip (**Fix this**, **Explain this**, **Add example**, **Simplify this**, **Question**) or type freely. Ink-only saves as note text `Ink mark`.
+5. Press `⌘↵` / `Ctrl↵` or click **Save**. Clear ink from the composer if needed.
 
-Saving needs a quote and a note. Closing the composer without save drops the draft.
+Saving needs a quote and either a note or ink. Closing the composer without save drops the draft (including unsaved strokes).
 
 ## Review
 
@@ -16,16 +18,16 @@ Open **Feedback** (`]`). Tabs:
 
 | Tab | Meaning |
 |---|---|
-| **Open** | Active notes — marks in the doc |
+| **Open** | Active root notes — marks and ink in the doc |
 | **Acked** | Agent finished (`type: ack`) |
 | **Dismissed** | You discarded (`type: tombstone`) |
 | **All** | History for the current scope |
 
-**This file** vs all files filters the list. Click a row to jump to the quote. Click `×` to dismiss (tombstone), not hard-delete.
+**This file** vs all files filters the list. Click a row to jump to the quote. Click `×` to dismiss (tombstone), not hard-delete. Notes with ink show a small thumbnail.
 
 ## Agent side
 
-Each save appends one JSON line under `<root>/.peel/feedback.jsonl`. Agents should edit sources, then `POST` an `ack` with `ref` set to the note id. Playbook: [[agent-loop]]. Contract: [[feedback-contract]].
+Each save appends one JSON line under `<root>/.peel/feedback.jsonl`. Optional ink is a separate SVG under `.peel/ink/<note-id>.svg`, referenced by the note’s `ink` field. Reply notes may set `ref` to a parent note id (they are not separate open-queue items). Agents should edit sources, then `POST` an `ack` with `ref` set to the note id. Playbook: [[agent-loop]]. Contract: [[feedback-contract]].
 
 ## Anchors
 

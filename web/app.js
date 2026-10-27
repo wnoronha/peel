@@ -13,6 +13,10 @@ function peelApp() {
       { icon: 'circle-help', label: 'Question', action: 'question' },
     ],
     composer: { open: false, x: 0, y: 0 }, composerNote: '', composerAction: '', composerRect: null,
+    composerQuote: '',
+    drawMode: false, inkStrokes: [], inkCurrent: null, inkDrawing: false,
+    // Configurable ink stroke; default synth pink (Cyberpunk-style). CSS --color-synth-pink mirrors this.
+    inkStroke: '#ff2ecb',
     leftOpen: false, rightOpen: false, metaOpen: null,
     goto: { open: false, query: '', idx: 0 },
     gotoHits: [],
@@ -110,12 +114,20 @@ function peelApp() {
       if (localStorage.getItem('peel-left') === '1') this.leftOpen = true;
       if (localStorage.getItem('peel-right') === '1') this.rightOpen = true;
       document.addEventListener('selectionchange', () => this.onSelect());
+      document.addEventListener('pointerdown', e => this.onInkPointerDown(e));
+      document.addEventListener('pointermove', e => this.onInkPointerMove(e));
+      document.addEventListener('pointerup', e => this.onInkPointerUp(e));
+      document.addEventListener('pointercancel', e => this.onInkPointerUp(e));
       document.addEventListener('keydown', e => {
         const mod = e.ctrlKey || e.metaKey;
         const key = e.key.toLowerCase();
         if (mod && (key === 'p' || key === 'k')) {
           e.preventDefault();
           this.openGoto();
+          return;
+        }
+        if (e.key === 'Escape' && this.drawMode && !this.composer.open && !this.goto.open) {
+          this.setDrawMode(false);
           return;
         }
         if (this.goto.open) return;
@@ -163,8 +175,24 @@ function peelApp() {
         if (f && this.files.some(x => x.path === f)) this.openFile(f, opts);
         else if (this.files.length) this.openFile(this.files[0].path);
       });
+      this.applyInkStroke();
       this.connectSSE();
       this.refreshTotal();
+    },
+
+    // Resolve stroke color: inkStroke override → CSS var → hard default.
+    resolveInkStroke() {
+      const fromState = (this.inkStroke || '').trim();
+      if (fromState) return fromState;
+      const fromCss = getComputedStyle(document.documentElement).getPropertyValue('--color-synth-pink').trim();
+      return fromCss || '#ff2ecb';
+    },
+    applyInkStroke(color) {
+      if (color) this.inkStroke = color;
+      const c = this.resolveInkStroke();
+      this.inkStroke = c;
+      document.documentElement.style.setProperty('--color-synth-pink', c);
+      return c;
     },
 
     toggleTheme() {
@@ -280,8 +308,18 @@ function peelApp() {
       setTimeout(() => this.$refs.filter && this.$refs.filter.focus(), 50);
     },
     openAnnotate() {
-      this.toggleRight();
-      if (this.rightOpen) setTimeout(() => this.$refs.note && this.$refs.note.focus(), 50);
+      this.setDrawMode(!this.drawMode);
+    },
+    setDrawMode(on) {
+      this.drawMode = !!on;
+      document.body.classList.toggle('draw-mode', this.drawMode);
+      if (!this.drawMode) {
+        this.clearInkDraft();
+        this.inkDrawing = false;
+        this.inkCurrent = null;
+      } else {
+        this.$nextTick(() => this.ensureInkHost());
+      }
     },
     openFeedbackAll() {
       this.rightOpen = true;
@@ -574,7 +612,154 @@ function peelApp() {
         this.composer.open = false;
       }
     },
-    closeComposer() { this.composer.open = false; this.composerNote = ''; this.composerAction = ''; },
+    closeComposer() {
+      this.composer.open = false;
+      this.composerNote = '';
+      this.composerAction = '';
+      this.clearInkDraft();
+    },
+
+    inkPoint(e) {
+      const root = this.searchRoot();
+      if (!root) return null;
+      const rect = root.getBoundingClientRect();
+      return {
+        x: +(e.clientX - rect.left + root.scrollLeft).toFixed(1),
+        y: +(e.clientY - rect.top + root.scrollTop).toFixed(1),
+      };
+    },
+    canInk(e) {
+      if (!this.drawMode) return false;
+      if (e.pointerType === 'touch') return false;
+      if (e.pointerType === 'pen') return true;
+      // Mouse: only after a quote is selected (select then draw).
+      return this.composer.open && !!this.selQuote;
+    },
+    inkUITarget(el) {
+      return !!(el && el.closest && el.closest('#composer, #goto, [data-component="top"], [data-component="notes"], [data-component="files"], [data-component="footer"], .meta-menu, #deckbar, #c4bar'));
+    },
+    onInkPointerDown(e) {
+      if (!this.canInk(e)) return;
+      if (this.inkUITarget(e.target)) return;
+      const root = this.searchRoot();
+      if (!root || !root.contains(e.target) && e.target !== root) {
+        // Allow drawing when the event hits our draft svg over the root.
+        if (!(e.target && e.target.classList && e.target.classList.contains('ink-draft'))) return;
+      }
+      const pt = this.inkPoint(e);
+      if (!pt) return;
+      this.ensureInkHost();
+      this.inkDrawing = true;
+      this.inkCurrent = [pt];
+      try { e.target.setPointerCapture && e.target.setPointerCapture(e.pointerId); } catch (_) { /* ignore */ }
+      e.preventDefault();
+      this.paintInkDraft();
+    },
+    onInkPointerMove(e) {
+      if (!this.inkDrawing || !this.inkCurrent) return;
+      const pt = this.inkPoint(e);
+      if (!pt) return;
+      this.inkCurrent.push(pt);
+      this.paintInkDraft();
+    },
+    onInkPointerUp(e) {
+      if (!this.inkDrawing) return;
+      this.inkDrawing = false;
+      if (this.inkCurrent && this.inkCurrent.length > 1) this.inkStrokes.push(this.inkCurrent);
+      this.inkCurrent = null;
+      this.paintInkDraft();
+    },
+    clearInkDraft() {
+      this.inkStrokes = [];
+      this.inkCurrent = null;
+      this.inkDrawing = false;
+      const host = this.searchRoot();
+      if (!host) return;
+      const draft = host.querySelector(':scope > .ink-draft');
+      if (draft) draft.innerHTML = '';
+    },
+    ensureInkHost() {
+      const root = this.searchRoot();
+      if (!root) return null;
+      root.classList.add('ink-host');
+      let draft = root.querySelector(':scope > .ink-draft');
+      if (!draft) {
+        draft = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        draft.classList.add('ink-draft');
+        draft.setAttribute('aria-hidden', 'true');
+        root.appendChild(draft);
+      }
+      let saved = root.querySelector(':scope > .ink-saved');
+      if (!saved) {
+        saved = document.createElement('div');
+        saved.className = 'ink-saved';
+        saved.setAttribute('aria-hidden', 'true');
+        root.appendChild(saved);
+      }
+      const w = Math.max(root.scrollWidth, root.clientWidth, 1);
+      const h = Math.max(root.scrollHeight, root.clientHeight, 1);
+      draft.setAttribute('viewBox', `0 0 ${w} ${h}`);
+      draft.setAttribute('width', String(w));
+      draft.setAttribute('height', String(h));
+      // CSS must not leave the SVG at 0×0 or paths never paint (strokes still counted).
+      draft.style.width = w + 'px';
+      draft.style.height = h + 'px';
+      return root;
+    },
+    strokePath(stroke) {
+      if (!stroke || stroke.length < 2) return '';
+      return stroke.map((p, i) => `${i ? 'L' : 'M'}${p.x} ${p.y}`).join(' ');
+    },
+    paintInkDraft() {
+      const root = this.ensureInkHost();
+      if (!root) return;
+      const draft = root.querySelector(':scope > .ink-draft');
+      if (!draft) return;
+      const stroke = this.resolveInkStroke();
+      const all = this.inkCurrent ? this.inkStrokes.concat([this.inkCurrent]) : this.inkStrokes;
+      draft.innerHTML = all.map(s => {
+        const d = this.strokePath(s);
+        return d ? `<path d="${d}" fill="none" stroke="${stroke}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>` : '';
+      }).join('');
+    },
+    serializeInk() {
+      if (!this.inkStrokes.length) return '';
+      const root = this.searchRoot();
+      if (!root) return '';
+      const w = Math.max(root.scrollWidth, root.clientWidth, 1);
+      const h = Math.max(root.scrollHeight, root.clientHeight, 1);
+      const paths = this.inkStrokes.map(s => {
+        const d = this.strokePath(s);
+        const stroke = this.resolveInkStroke();
+        return d ? `<path d="${d}" fill="none" stroke="${stroke}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>` : '';
+      }).join('');
+      return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}">${paths}</svg>`;
+    },
+    async paintSavedInk() {
+      const root = this.ensureInkHost();
+      if (!root) return;
+      const box = root.querySelector(':scope > .ink-saved');
+      if (!box) return;
+      const w = Math.max(root.scrollWidth, root.clientWidth, 1);
+      const h = Math.max(root.scrollHeight, root.clientHeight, 1);
+      // Size the layer so layout cannot collapse children to 0×0.
+      box.style.width = w + 'px';
+      box.style.height = h + 'px';
+      const list = (this.feedbackNotes || []).filter(f => f.status === 'open' && f.file === this.current && f.ink && !f.ref);
+      // Inline SVG (not <img>) so #content img { max-width:100% } cannot hide ink — esp. Firefox.
+      const parts = await Promise.all(list.map(async f => {
+        try {
+          const r = await fetch('/api/feedback/ink?id=' + encodeURIComponent(f.id) + '&t=' + encodeURIComponent(f.ts || ''));
+          if (!r.ok) return '';
+          let svg = await r.text();
+          svg = svg.replace(/<svg\b/i, '<svg class="ink-saved-svg" aria-hidden="true"');
+          return '<div class="ink-saved-layer" data-ink-id="' + f.id.replace(/"/g, '') + '">' + svg + '</div>';
+        } catch (_) {
+          return '';
+        }
+      }));
+      box.innerHTML = parts.join('');
+    },
 
     applyPreset(cur, preset) {
       const t = (cur || '').trim();
@@ -657,13 +842,25 @@ function peelApp() {
 
     async saveComposer() {
       const box = document.querySelector('#composer textarea');
-      const note = (this.composerNote || (box ? box.value : '')).trim();
+      const inkSvg = this.serializeInk();
+      let note = (this.composerNote || (box ? box.value : '')).trim();
+      if (!note && inkSvg) note = 'Ink mark';
       if (!this.selQuote || !note) return;
       const [sl, el] = this.lineRangeFor(this.selQuote);
-      const body = { type: 'note', file: this.current, quote: this.selQuote, startLine: sl, endLine: el, note: this.composerNote.trim(), ...this.feedbackAnchor() };
+      const body = { type: 'note', file: this.current, quote: this.selQuote, startLine: sl, endLine: el, note, ...this.feedbackAnchor() };
       if (this.composerAction) body.action = this.composerAction;
+      if (inkSvg) body.inkSvg = inkSvg;
       const r = await fetch('/api/feedback', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-      if (r.ok) { this.composerNote = ''; this.composerAction = ''; this.composer.open = false; this.selQuote = ''; window.getSelection().removeAllRanges(); this.loadFeedback(); this.refreshTotal(); }
+      if (r.ok) {
+        this.composerNote = '';
+        this.composerAction = '';
+        this.composer.open = false;
+        this.selQuote = '';
+        this.clearInkDraft();
+        window.getSelection().removeAllRanges();
+        this.loadFeedback();
+        this.refreshTotal();
+      }
     },
 
     // Classify raw log events into notes with status: open | acked | dismissed.
@@ -683,7 +880,9 @@ function peelApp() {
       for (const ev of events || []) {
         const t = ev.type || 'note';
         if (t !== 'note') continue;
-        const c = closes[ev.id];
+        let c = closes[ev.id];
+        // Cascade: reply notes inherit parent close.
+        if (!c && ev.ref && closes[ev.ref]) c = closes[ev.ref];
         out.push({
           ...ev,
           type: 'note',
@@ -698,7 +897,7 @@ function peelApp() {
     get visibleFeedback() {
       const st = this.fbStatus || 'open';
       let list = this.feedbackNotes || [];
-      if (st === 'open') list = list.filter(f => f.status === 'open');
+      if (st === 'open') list = list.filter(f => f.status === 'open' && !f.ref);
       else if (st === 'acked') list = list.filter(f => f.status === 'acked');
       else if (st === 'dismissed') list = list.filter(f => f.status === 'dismissed');
       return list;
@@ -707,6 +906,7 @@ function peelApp() {
     fbStatusCount(status) {
       const list = this.feedbackNotes || [];
       if (status === 'all') return list.length;
+      if (status === 'open') return list.filter(f => f.status === 'open' && !f.ref).length;
       return list.filter(f => f.status === status).length;
     },
 
@@ -770,6 +970,8 @@ function peelApp() {
           if (this.findBlockForQuote(f.quote)) break;
         }
       }
+      // Re-paint marks/ink after slide/level changes (content host may have been rebuilt).
+      this.$nextTick(() => this.applyMarks());
       if (f.headingId) {
         const el = this.$refs.content && this.$refs.content.querySelector('#' + CSS.escape(f.headingId));
         if (el) {
@@ -800,12 +1002,13 @@ function peelApp() {
       const c = this.searchRoot();
       if (!c) return;
       c.querySelectorAll('.fb-mark').forEach(m => m.classList.remove('fb-mark', 'm0', 'm1', 'm2'));
-      // Only open notes mark the doc — acked/dismissed stay in the list but don't paint.
-      const list = (this.feedbackNotes || []).filter(f => f.status === 'open' && f.file === this.current);
+      // Only open root notes mark the doc — acked/dismissed stay in the list but don't paint.
+      const list = (this.feedbackNotes || []).filter(f => f.status === 'open' && f.file === this.current && !f.ref);
       list.forEach((f, i) => {
         const block = this.findBlockForQuote(f.quote);
         if (block && c.contains(block)) block.classList.add('fb-mark', 'm' + (i % 3));
       });
+      this.paintSavedInk(); // async; paints when fetches settle
     },
 
     async saveNote() {
@@ -825,8 +1028,8 @@ function peelApp() {
       let notes = this.classifyNotes(j.feedback || []);
       if (!this.fbAll && this.current) notes = notes.filter(f => f.file === this.current);
       this.feedbackNotes = notes;
-      this.feedback = notes.filter(f => f.status === 'open');
-      this.feedbackTotal = (this.classifyNotes(j.feedback || [])).filter(f => f.status === 'open').length;
+      this.feedback = notes.filter(f => f.status === 'open' && !f.ref);
+      this.feedbackTotal = (this.classifyNotes(j.feedback || [])).filter(f => f.status === 'open' && !f.ref).length;
       this.$nextTick(() => this.applyMarks());
     },
 
@@ -845,7 +1048,7 @@ function peelApp() {
       try {
         const r = await fetch('/api/feedback?all=1&t=' + Date.now());
         const j = await r.json();
-        this.feedbackTotal = this.classifyNotes(j.feedback || []).filter(f => f.status === 'open').length;
+        this.feedbackTotal = this.classifyNotes(j.feedback || []).filter(f => f.status === 'open' && !f.ref).length;
       } catch (_) { /* ignore */ }
     },
 

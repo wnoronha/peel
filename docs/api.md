@@ -38,11 +38,15 @@ Returns the **folded open-note set** (notes without a later ack or tombstone). O
 
 Appends one event (`fsync`).
 
-- **note** (default): `file` plus `note` and/or `quote`. Optional `action`, `startLine`/`endLine`, `headingId`, `slide`, `level`, `levelKind`.
+- **note** (default): `file` plus `note` and/or `quote`. Optional `action`, `startLine`/`endLine`, `headingId`, `slide`, `level`, `levelKind`, `ref` (parent note id), `inkSvg` (SVG string → writes `.peel/ink/<id>.svg` and sets `ink`). Ink requires `quote`; ink-only notes get `note: "Ink mark"`.
 - **ack**: `{ "type": "ack", "ref": "<note-id>", "note": "…" }`
 - **tombstone**: `{ "type": "tombstone", "ref": "<note-id>" }`
 
-Returns `{ok: true, id, type}`. Bad file/type/action/ref → 400.
+Returns `{ok: true, id, type, ink?}`. Bad file/type/action/ref/ink → 400.
+
+## `GET /api/feedback/ink?id=<note-id>`
+
+Returns the SVG for a note that has `ink`, `Content-Type: image/svg+xml`. 404 if missing.
 
 ## `DELETE /api/feedback?id=<note-id>`
 
