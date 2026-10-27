@@ -613,12 +613,52 @@ function peelApp() {
       return [start, start + (quote.match(/\n/g) || []).length];
     },
 
+    // Stable view anchors alongside quote/lines (deck slide, C4 level, md heading id).
+    feedbackAnchor() {
+      const a = {};
+      if (!this.doc) return a;
+      if (this.doc.type === 'deck') {
+        a.slide = this.slideIdx + 1;
+        return a;
+      }
+      if (this.doc.type === 'c4') {
+        a.level = this.levelIdx + 1;
+        if (this.c4LevelKind) a.levelKind = this.c4LevelKind;
+        return a;
+      }
+      const outline = this.doc.outline || [];
+      let id = '';
+      const sel = window.getSelection();
+      if (sel && sel.rangeCount && this.$refs.content) {
+        let node = sel.anchorNode;
+        let el = node && node.nodeType === 3 ? node.parentElement : node;
+        while (el && el !== this.$refs.content) {
+          if (el.id && /^H[1-6]$/.test(el.tagName)) { id = el.id; break; }
+          el = el.previousElementSibling || (el.parentElement !== this.$refs.content ? el.parentElement : null);
+        }
+        if (!id) {
+          let cur = sel.anchorNode && (sel.anchorNode.nodeType === 3 ? sel.anchorNode.parentElement : sel.anchorNode);
+          while (cur && cur !== this.$refs.content) {
+            const prev = cur.previousElementSibling;
+            if (prev && /^H[1-6]$/.test(prev.tagName) && prev.id) { id = prev.id; break; }
+            cur = cur.parentElement;
+          }
+        }
+      }
+      if (!id && this.section) {
+        const hit = outline.find(o => o.text === this.section);
+        if (hit && hit.id) id = hit.id;
+      }
+      if (id) a.headingId = id;
+      return a;
+    },
+
     async saveComposer() {
       const box = document.querySelector('#composer textarea');
       const note = (this.composerNote || (box ? box.value : '')).trim();
       if (!this.selQuote || !note) return;
       const [sl, el] = this.lineRangeFor(this.selQuote);
-      const body = { type: 'note', file: this.current, quote: this.selQuote, startLine: sl, endLine: el, note: this.composerNote.trim() };
+      const body = { type: 'note', file: this.current, quote: this.selQuote, startLine: sl, endLine: el, note: this.composerNote.trim(), ...this.feedbackAnchor() };
       if (this.composerAction) body.action = this.composerAction;
       const r = await fetch('/api/feedback', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       if (r.ok) { this.composerNote = ''; this.composerAction = ''; this.composer.open = false; this.selQuote = ''; window.getSelection().removeAllRanges(); this.loadFeedback(); this.refreshTotal(); }
@@ -665,7 +705,9 @@ function peelApp() {
 
     jumpToFeedback(f) {
       if (!f || this.current !== f.file) { this.openFile(f.file); setTimeout(() => this.jumpToFeedback(f), 600); return; }
-      if (this.doc?.type === 'deck') {
+      if (this.doc?.type === 'deck' && f.slide > 0) {
+        this.showSlide(f.slide - 1, false);
+      } else if (this.doc?.type === 'deck') {
         const probe = this.findBlockForQuote(f.quote);
         const slideEl = probe ? probe.closest('.slide') : null;
         if (slideEl) {
@@ -673,11 +715,24 @@ function peelApp() {
           if (i >= 0 && i !== this.slideIdx) this.showSlide(i, false);
         }
       }
-      if (this.doc?.type === 'c4') {
+      if (this.doc?.type === 'c4' && f.level > 0) {
+        this.showLevel(f.level - 1);
+      } else if (this.doc?.type === 'c4') {
         const n = (this.doc.levels || []).length;
         for (let k = 0; k < n; k++) {
           this.showLevel(k);
           if (this.findBlockForQuote(f.quote)) break;
+        }
+      }
+      if (f.headingId) {
+        const el = this.$refs.content && this.$refs.content.querySelector('#' + CSS.escape(f.headingId));
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          el.classList.remove('fb-flash');
+          void el.offsetWidth;
+          el.classList.add('fb-flash');
+          setTimeout(() => el.classList.remove('fb-flash'), 1400);
+          return;
         }
       }
       const block = this.findBlockForQuote(f.quote);
@@ -712,7 +767,7 @@ function peelApp() {
       const note = (this.noteText || (this.$refs.note ? this.$refs.note.value : '')).trim();
       if (!q || !note) return;
       const [sl, el] = this.lineRangeFor(q);
-      const body = { type: 'note', file: this.current, quote: q, startLine: sl, endLine: el, note };
+      const body = { type: 'note', file: this.current, quote: q, startLine: sl, endLine: el, note, ...this.feedbackAnchor() };
       if (this.noteAction) body.action = this.noteAction;
       const r = await fetch('/api/feedback', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       if (r.ok) { this.noteText = ''; this.noteAction = ''; this.selQuote = ''; window.getSelection().removeAllRanges(); this.loadFeedback(); this.refreshTotal(); }

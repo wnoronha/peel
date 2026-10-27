@@ -28,6 +28,10 @@ type Feedback struct {
 	EndLine   int    `json:"endLine,omitempty"`
 	Note      string `json:"note,omitempty"`
 	Action    string `json:"action,omitempty"` // fix|explain|example|simplify|question
+	HeadingID string `json:"headingId,omitempty"`
+	Slide     int    `json:"slide,omitempty"`     // 1-based deck slide
+	Level     int    `json:"level,omitempty"`     // 1-based C4 level
+	LevelKind string `json:"levelKind,omitempty"` // Context|Container|Component|Code|…
 }
 
 var allowedActions = map[string]bool{
@@ -155,6 +159,10 @@ func (s *Server) handleFeedbackAdd(w http.ResponseWriter, r *http.Request) {
 		fb.StartLine = 0
 		fb.EndLine = 0
 		fb.Action = ""
+		fb.HeadingID = ""
+		fb.Slide = 0
+		fb.Level = 0
+		fb.LevelKind = ""
 		if t == FeedbackTombstone {
 			fb.Note = ""
 		}

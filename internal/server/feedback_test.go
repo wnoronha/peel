@@ -214,6 +214,34 @@ func TestFeedbackActionPersisted(t *testing.T) {
 	}
 }
 
+func TestFeedbackAnchorsPersisted(t *testing.T) {
+	s := New(t.TempDir())
+	body, _ := json.Marshal(Feedback{
+		File: "c4-peel.c4", Quote: "Annotate", Note: "n",
+		Level: 3, LevelKind: "Component",
+	})
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/feedback", bytes.NewReader(body))
+	s.handleFeedbackAdd(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rec.Code)
+	}
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest("GET", "/api/feedback", nil)
+	s.handleFeedbackList(rec, req)
+	var listResp struct {
+		Feedback []Feedback `json:"feedback"`
+	}
+	_ = json.Unmarshal(rec.Body.Bytes(), &listResp)
+	if len(listResp.Feedback) != 1 {
+		t.Fatalf("expected 1 note, got %+v", listResp.Feedback)
+	}
+	got := listResp.Feedback[0]
+	if got.Level != 3 || got.LevelKind != "Component" {
+		t.Fatalf("expected level anchors, got %+v", got)
+	}
+}
+
 func TestFoldOpenNotes(t *testing.T) {
 	events := []Feedback{
 		{ID: "1", Type: FeedbackNote, File: "a.md", Note: "n"},

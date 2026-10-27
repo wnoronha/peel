@@ -179,7 +179,7 @@
             <div class="meta" x-show="f.action" x-text="f.action"></div>
             <div class="fb-note" x-text="f.note"></div>
             <blockquote x-text="`“${(f.quote||'').slice(0,300)}”`"></blockquote>
-            <div class="meta" x-text="`L${f.startLine}–${f.endLine}`"></div>
+            <div class="meta" x-text="[f.headingId ? '#' + f.headingId : '', f.slide ? 'slide ' + f.slide : '', f.level ? ((f.levelKind || 'level') + ' ' + f.level) : '', (f.startLine || f.endLine) ? ('L' + f.startLine + '–' + f.endLine) : ''].filter(Boolean).join(' · ')"></div>
           </div>
         </template>
       </div>
