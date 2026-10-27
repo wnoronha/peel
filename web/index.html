@@ -224,6 +224,14 @@
     <span><span x-text="sse === 'live' ? '●' : '○'" :style="`color:${sse === 'live' ? 'green' : 'red'}`">●</span> <span x-text="sse === 'live' ? 'live · SSE' : sse + ' · SSE'">live · SSE</span></span>
   </footer>
 
+  <div id="toasts" aria-live="polite" aria-relevant="additions">
+    <template x-for="t in toasts" :key="t.id">
+      <button type="button" class="toast" :class="'toast-' + t.kind" @click="onToastClick(t)" :title="t.action === 'feedback' ? 'Open Feedback' : ''">
+        <span class="toast-msg" x-text="t.message"></span>
+        <span class="toast-x" @click.stop="dismissToast(t.id)" aria-label="Dismiss">×</span>
+      </button>
+    </template>
+  </div>
 
   <div id="composer" x-show="composer.open" :style="`left:${composer.x}px;top:${composer.y}px`" @keydown.escape.window="closeComposer()">
     <button class="cmp-x" @click="closeComposer()" aria-label="Close">×</button>

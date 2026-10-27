@@ -177,6 +177,16 @@ pre.diagram{background:transparent}
 @keyframes fbflash{0%,40%{outline:1px solid var(--color-text-strong)}100%{outline:none}}
 #feedback .fb blockquote{margin:6px 0;padding-left:10px;border-left:2px solid var(--color-border);color:var(--color-text-weak)}
 [data-component="footer"]{display:flex;justify-content:space-between;padding:24px 5rem;color:var(--color-text-weak);font-size:14px;line-height:2;border-top:1px solid var(--color-border-weak)}
+/* Activity toasts (agent ack, doc reload, remote notes) */
+#toasts{position:fixed;right:16px;bottom:16px;z-index:80;display:flex;flex-direction:column;gap:8px;max-width:min(360px,calc(100vw - 32px));pointer-events:none}
+.toast{pointer-events:auto;display:flex;align-items:flex-start;gap:10px;width:100%;text-align:left;padding:10px 12px;border:1px solid var(--color-border-weak);border-radius:var(--radius-sm);background:var(--color-background);color:var(--color-text-strong);font:inherit;font-size:13px;line-height:1.4;cursor:pointer;box-shadow:0 8px 24px color-mix(in srgb, var(--color-text-strong) 8%, transparent);animation:toast-in .18s ease-out}
+.toast-msg{flex:1;min-width:0}
+.toast-x{flex-shrink:0;border:0;background:none;color:var(--color-text-weak);font-size:16px;line-height:1;cursor:pointer;padding:0 2px}
+.toast-ok{border-left:3px solid var(--color-success)}
+.toast-warn{border-left:3px solid var(--color-warning)}
+.toast-info{border-left:3px solid var(--color-text-weak)}
+@keyframes toast-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.toast{animation:none}}
 .weak{color:var(--color-text-weak)}
 @media(max-width:60rem){
   [data-component="top"],[data-component="hero"],[data-component="footer"]{padding-left:1.5rem;padding-right:1.5rem}
