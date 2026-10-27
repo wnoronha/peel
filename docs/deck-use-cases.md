@@ -16,11 +16,15 @@ Full write-up: [[use-cases]]
 
 ## 1 · Architecture review
 
-Open a `.c4` model.
-Walk levels. Drill into boxes.
-Annotate wrong labels — agents patch the source.
+Models live in dedicated `*.c4` files rendered in Peel's interactive viewer.
+Walk levels, drill into boxes, and annotate labels for agents to patch.
 
-Demo model: [[c4-peel]]
+Open model: [[c4-peel]]
+
+```mermaid
+flowchart LR
+  Context["1 · Context"] --> Container["2 · Container"] --> Component["3 · Component"] --> Code["4 · Code"]
+```
 
 ---
 

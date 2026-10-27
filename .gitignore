@@ -15,3 +15,6 @@
 .DS_Store
 Thumbs.db
 .ai/
+
+__pycache__/
+*.py[cod]
