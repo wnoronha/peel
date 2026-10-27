@@ -38,7 +38,7 @@ Returns the **folded open-note set** (notes without a later ack or tombstone). O
 
 Appends one event (`fsync`).
 
-- **note** (default): `file` plus `note` and/or `quote`. Optional `action`, `startLine`/`endLine`, `headingId`, `slide`, `level`, `levelKind`.
+- **note** (default): `file` plus `note` and/or `quote`. Optional `action`, `startLine`/`endLine`, `headingId`, `slide`, `level`, `levelKind`, `c4Id` / `c4Label` / `c4From` / `c4To`.
 - **ack**: `{ "type": "ack", "ref": "<note-id>", "note": "…" }`
 - **tombstone**: `{ "type": "tombstone", "ref": "<note-id>" }`
 

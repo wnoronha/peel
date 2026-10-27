@@ -148,7 +148,7 @@
       <article id="content" x-ref="content" x-show="doc?.type !== 'c4'"><p class="weak">Select a file to read.</p></article>
       <div id="c4view" x-show="doc?.type === 'c4'">
         <div class="c4-scroll" x-ref="c4scroll">
-          <div class="c4-canvas" x-ref="c4canvas" @click="c4Drill($event)" title="Click a box to drill down"></div>
+          <div class="c4-canvas" x-ref="c4canvas" @click="c4Click($event)" @dblclick="c4DblClick($event)" title="Click to comment · double-click to drill"></div>
         </div>
         <div class="c4-legend weak"><span><i class="sw sys"></i>system</span><span><i class="sw ext"></i>external</span><span><i class="sw cont"></i>container</span><span><i class="sw comp"></i>component</span><span><i class="sw store"></i>store</span><span><i class="sw person"></i>person</span></div>
       </div>
@@ -224,6 +224,7 @@
     <span>peel · <span id="footRoot" x-text="root">docs</span></span>
     <span><span x-text="sse === 'live' ? '●' : '○'" :style="`color:${sse === 'live' ? 'green' : 'red'}`">●</span> <span x-text="sse === 'live' ? 'live · SSE' : sse + ' · SSE'">live · SSE</span></span>
   </footer>
+
 
   <div id="composer" x-show="composer.open" :style="`left:${composer.x}px;top:${composer.y}px`" @keydown.escape.window="closeComposer()">
     <button class="cmp-x" @click="closeComposer()" aria-label="Close">×</button>

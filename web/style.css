@@ -230,8 +230,9 @@ table[data-component="rankings"] td.type{text-align:center;color:var(--color-tex
 .c4-canvas{width:max-content;min-width:100%}
 .c4-canvas .pele-diagram{border:0;background:transparent;padding:0}
 .c4-canvas svg{overflow:visible}
-.c4-canvas .pele-node{cursor:pointer}
+.c4-canvas .pele-node,.c4-canvas .pele-edge,.c4-canvas .pele-edge-label{cursor:pointer}
 .c4-canvas .pele-node:hover{filter:brightness(1.12)}
+.c4-canvas .pele-edge:hover,.c4-canvas .pele-edge-label:hover{opacity:.9}
 .c4-canvas rect{rx:12px}
 .c4-canvas .pele-c4-system{--_s:#2f6feb;--_b:#1e40af;--_m:rgba(255,255,255,.8);--_fg:#fff}
 .c4-canvas .pele-c4-external,.c4-canvas .pele-c4-external_system{--_s:#64748b;--_b:#475569;--_m:rgba(255,255,255,.8);--_fg:#fff}

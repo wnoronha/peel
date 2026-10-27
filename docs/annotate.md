@@ -4,11 +4,11 @@ Select text in the reader (docs, decks, or C4 labels). Peel captures the quote, 
 
 ## Capture
 
-1. Drag-select text — a composer appears near the selection.
+1. Drag-select text — a composer appears near the selection. On C4, **click** a box or Rel instead (double-click drills).
 2. Pick a chip (**Fix this**, **Explain this**, **Add example**, **Simplify this**, **Question**) or type freely.
 3. Press `⌘↵` / `Ctrl↵` or click **Save**.
 
-Saving needs a quote and a note. Closing the composer without save drops the draft.
+Saving needs a quote and a note. Closing the composer without save drops the draft. There is no separate Annotate nav button — Feedback (`]`) reviews the queue.
 
 ## Review
 
@@ -29,7 +29,7 @@ Each save appends one JSON line under `<root>/.peel/feedback.jsonl`. Agents shou
 
 ## Anchors
 
-Notes may carry `headingId`, `slide`, `level`, `levelKind`, and line ranges so agents can find the quote after edits. Prefer matching on `quote` text when lines drift.
+Notes may carry `headingId`, `slide`, `level`, `levelKind`, `c4Id` / `c4Label` / `c4From` / `c4To`, and line ranges so agents can find the quote after edits. Prefer matching on `quote` (or `c4Id` / Rel endpoints) when lines drift.
 
 ## Screenshots
 

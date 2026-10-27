@@ -29,7 +29,7 @@ Agents read `<root>/.peel/feedback.jsonl`. One JSON object per line. The file is
 - `startLine` / `endLine` — 1-based source hints; `0` if unmapped  
 - `action` — optional chip intent: `fix` | `explain` | `example` | `simplify` | `question`  
 - `note` — free text  
-- Anchors (optional): `headingId` (markdown), `slide` (1-based deck), `level` + `levelKind` (C4)
+- Anchors (optional): `headingId` (markdown), `slide` (1-based deck), `level` + `levelKind` (C4), `c4Id` / `c4Label` / `c4From` / `c4To` (C4 node or Rel)
 
 ## Ack event
 
