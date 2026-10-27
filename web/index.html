@@ -35,7 +35,6 @@
         <li><a href="#" @click.prevent="openFiles('decks')">Decks</a></li>
         <li><a href="#" @click.prevent="openFiles('c4')">C4</a></li>
         <li><a href="#" @click.prevent="openFeedbackAll()">Feedback <span id="fbCount" x-text="feedbackTotal ? `(${feedbackTotal})` : ''"></span></a></li>
-        <li><a data-slot="cta-button" href="#" @click.prevent="openAnnotate()">✎ Annotate</a></li>
         <li><button class="mini-btn" @click="toggleTheme()" title="Toggle theme" aria-label="Toggle theme">◐</button></li>
       </ul>
     </nav>

@@ -280,10 +280,6 @@ function peelApp() {
       localStorage.setItem('peel-left', '1');
       setTimeout(() => this.$refs.filter && this.$refs.filter.focus(), 50);
     },
-    openAnnotate() {
-      this.toggleRight();
-      if (this.rightOpen) setTimeout(() => this.$refs.note && this.$refs.note.focus(), 50);
-    },
     openFeedbackAll() {
       this.rightOpen = true;
       localStorage.setItem('peel-right', '1');

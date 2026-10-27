@@ -23,7 +23,7 @@ Open this folder with peel and you are dogfooding the product.
 - **Docs** — rendered markdown, outline, backlinks, Goto Anything (`Ctrl/Cmd-P` or `K`)
 - **Decks** — `marp: true` files split on `---` into focusable slides · [[view-decks]]
 - **C4** — `*.c4` levels with kind icons, zoom, drill-down · [[view-c4]]
-- **Annotate** — select text → note → `.peel/feedback.jsonl` · [[annotate]]
+- **Feedback** — select text (or click a C4 shape) → note → `.peel/feedback.jsonl` · [[annotate]]
 
 ## Specs (deep lane)
 
