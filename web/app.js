@@ -105,7 +105,7 @@ function peelApp() {
         return true;
       });
       if (this.userSorted) {
-        const val = f => this.sortKey === 'links' ? (f.links + f.backlinks)
+        const val = f => this.sortKey === 'links' ? ((f.links || 0) + (f.backlinks || 0))
           : this.sortKey === 'type' ? f.type : f.path;
         list.sort((a, b) => {
           const x = val(a), y = val(b);
