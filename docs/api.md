@@ -36,6 +36,7 @@ Sorted by path. Skips `.git`, `.peel`, `node_modules`. Only `.md`, `.c4`.
 |---|---|
 | `type` | `doc` \| `deck` \| `c4` (UI tabs / Goto icons) |
 | `isDeck` / `isC4` | Convenience booleans |
+| `name` | Same as `path`, includes subdirs for nested files |
 | `links` | `[[wikilinks]]` + local Markdown doc/C4 links |
 | `backlinks` | Other files that reference this path |
 
