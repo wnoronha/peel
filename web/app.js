@@ -751,7 +751,7 @@ function peelApp() {
       for (const p of this.presets) {
         const name = p.label;
         if (t === name) return preset + ': ';
-        if (t.startsWith(name + ':')) return preset + t.slice(name.length) || preset + ': ';
+        if (t.startsWith(name + ':')) return preset + (t.slice(name.length) || ': ');
         if (t.startsWith(name + ' ')) return preset + ': ' + t.slice(name.length).trim();
       }
       if (t.toLowerCase().startsWith(preset.toLowerCase())) return t;
