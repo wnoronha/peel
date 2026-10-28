@@ -183,6 +183,9 @@ function peelApp() {
           if (this.doc?.type === 'c4' && this.c4AutoFit) this.c4ZoomFit();
         }, UI_TIMINGS.resizeMs);
       });
+      window.addEventListener('scroll', () => {
+        if (this.composer.open) this.closeComposer();
+      }, { passive: true, capture: true });
       this.loadFiles().then(() => {
         const params = new URLSearchParams(location.search);
         const f = params.get('file') || params.get('view');
