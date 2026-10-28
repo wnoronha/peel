@@ -376,8 +376,6 @@ function peelApp() {
       if (d.type === 'deck' || d.type === 'c4') {
         this.leftOpen = false;
         this.rightOpen = false;
-        localStorage.setItem('peel-left', '0');
-        localStorage.setItem('peel-right', '0');
       }
       this.selQuote = '';
       this.composer.open = false;
