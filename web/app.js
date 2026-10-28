@@ -862,7 +862,13 @@ function peelApp() {
       if (this.composerAction) body.action = this.composerAction;
       const r = await fetch('/api/feedback', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       if (r.ok) {
-        this._suppressNoteToastUntil = Date.now() + 2500;
+        try {
+          const j = await r.json();
+          if (j && j.id) {
+            this._ownNoteIds = this._ownNoteIds || {};
+            this._ownNoteIds[j.id] = Date.now();
+          }
+        } catch (_) { /* ignore */ }
         this.composerNote = '';
         this.composerAction = '';
         this.composer.open = false;
@@ -1027,7 +1033,13 @@ function peelApp() {
       if (this.noteAction) body.action = this.noteAction;
       const r = await fetch('/api/feedback', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       if (r.ok) {
-        this._suppressNoteToastUntil = Date.now() + 2500;
+        try {
+          const j = await r.json();
+          if (j && j.id) {
+            this._ownNoteIds = this._ownNoteIds || {};
+            this._ownNoteIds[j.id] = Date.now();
+          }
+        } catch (_) { /* ignore */ }
         this.noteText = '';
         this.noteAction = '';
         this.selQuote = '';
@@ -1110,9 +1122,11 @@ function peelApp() {
         return;
       }
       if (t === 'note') {
-        // Skip toasting our own composer/panel saves (same tab still gets the event).
-        // Short quiet window after local save ids.
-        if (this._suppressNoteToastUntil && Date.now() < this._suppressNoteToastUntil) return;
+        // Skip toasting our own saves (same tab still gets the event).
+        if (ev.id && this._ownNoteIds && this._ownNoteIds[ev.id]) {
+          delete this._ownNoteIds[ev.id];
+          return;
+        }
         const file = ev.file ? String(ev.file) : 'a file';
         const preview = (ev.note || ev.quote || '').trim();
         const bit = preview ? (preview.length > 48 ? preview.slice(0, 45) + '…' : preview) : file;
