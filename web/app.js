@@ -132,7 +132,8 @@ function peelApp() {
           return;
         }
         if (this.goto.open) return;
-        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+        const tag = (e.target.tagName || '').toUpperCase();
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || tag === 'BUTTON' || e.target.isContentEditable) {
           if (e.key === 'Escape') e.target.blur();
           return;
         }
@@ -143,10 +144,10 @@ function peelApp() {
           const cur = isC4 ? this.levelIdx : this.slideIdx;
           const max = (isC4 ? (this.doc.levels || []).length : (this.doc.slides || []).length) - 1;
           const step = isC4 ? i => this.showLevel(i) : i => this.showSlide(i);
-          if (e.key === 'ArrowRight') step(cur + 1);
-          if (e.key === 'ArrowLeft') step(cur - 1);
-          if (e.key === 'Home') step(0);
-          if (e.key === 'End') step(max);
+          if (e.key === 'ArrowRight') { e.preventDefault(); step(cur + 1); }
+          if (e.key === 'ArrowLeft') { e.preventDefault(); step(cur - 1); }
+          if (e.key === 'Home') { e.preventDefault(); step(0); }
+          if (e.key === 'End') { e.preventDefault(); step(max); }
         }
       });
       this.$refs.content.addEventListener('click', e => {
@@ -1120,7 +1121,10 @@ function peelApp() {
           if (m.type === 'reload') {
             this.loadFiles();
             if (m.path === this.current) {
-              this.openFile(this.current);
+              const hasDraft = this.composer && this.composer.open;
+              if (!hasDraft) {
+                this.openFile(this.current);
+              }
               this.toast('Doc updated · ' + m.path, { kind: 'info', ttl: 3200 });
             }
           } else if (m.type === 'feedback') {
