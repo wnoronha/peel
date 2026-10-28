@@ -989,11 +989,15 @@ function peelApp() {
       if (this.doc?.type === 'c4' && f.level > 0) {
         this.showLevel(f.level - 1);
       } else if (this.doc?.type === 'c4') {
-        const n = (this.doc.levels || []).length;
-        for (let k = 0; k < n; k++) {
-          this.showLevel(k);
-          if (this.findBlockForQuote(f.quote)) break;
+        const levels = this.doc.levels || [];
+        const q = (f.quote || '').slice(0, 60);
+        let best = 0;
+        if (q.length >= 4) {
+          for (let k = 0; k < levels.length; k++) {
+            if ((levels[k].Source || levels[k].source || '').includes(q)) { best = k; break; }
+          }
         }
+        this.showLevel(best);
       }
       if (f.headingId) {
         const el = this.$refs.content && this.$refs.content.querySelector('#' + CSS.escape(f.headingId));
