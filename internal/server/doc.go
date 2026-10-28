@@ -22,8 +22,8 @@ var md = goldmark.New(
 )
 
 var (
-	headingRe  = regexp.MustCompile(`^(#{1,6})\s+(.+)$`)
-	wikiSafeRe = regexp.MustCompile("(?s)(```.*?```|`[^`\\n]+`)|" + `\[\[([^\]|#]+)(?:#([^\]|]+))?(?:\|([^\]]+))?\]\]`)
+	headingRe = regexp.MustCompile(`^(#{1,6})\s+(.+)$`)
+	wikiRe    = regexp.MustCompile(`\[\[([^\]|#]+)(?:#([^\]|]+))?(?:\|([^\]]+))?\]\]`)
 )
 
 type OutlineItem struct {
@@ -74,34 +74,32 @@ func slugify(t string) string {
 }
 
 func (s *Server) expandWikilinks(body string, targetMap map[string]string) string {
-	// Bound regex work on huge docs to avoid ReDoS stalls.
 	if len(body) > 1<<20 {
 		return body
 	}
-	return wikiSafeRe.ReplaceAllStringFunc(body, func(m string) string {
-		sub := wikiSafeRe.FindStringSubmatch(m)
-		if sub[1] != "" {
-			return sub[1]
-		}
-		target := strings.TrimSpace(sub[2])
-		anchor := strings.TrimSpace(sub[3])
-		label := strings.TrimSpace(sub[4])
-		if label == "" {
-			if anchor != "" {
-				label = target + " #" + anchor
-			} else {
-				label = target
+	return mapOutsideCode(body, func(seg string) string {
+		return wikiRe.ReplaceAllStringFunc(seg, func(m string) string {
+			sub := wikiRe.FindStringSubmatch(m)
+			target := strings.TrimSpace(sub[1])
+			anchor := strings.TrimSpace(sub[2])
+			label := strings.TrimSpace(sub[3])
+			if label == "" {
+				if anchor != "" {
+					label = target + " #" + anchor
+				} else {
+					label = target
+				}
 			}
-		}
-		dest := targetMap[strings.ToLower(target)]
-		if dest == "" {
-			return fmt.Sprintf(`<span class="wikilink-missing">%s</span>`, htmlstd.EscapeString(label))
-		}
-		href := fmt.Sprintf("?file=%s", dest)
-		if anchor != "" {
-			href += "#" + slugify(anchor)
-		}
-		return fmt.Sprintf(`<a class="wikilink" data-wikilink="%s" href="%s">%s</a>`, htmlstd.EscapeString(dest), htmlstd.EscapeString(href), htmlstd.EscapeString(label))
+			dest := targetMap[strings.ToLower(target)]
+			if dest == "" {
+				return fmt.Sprintf(`<span class="wikilink-missing">%s</span>`, htmlstd.EscapeString(label))
+			}
+			href := fmt.Sprintf("?file=%s", dest)
+			if anchor != "" {
+				href += "#" + slugify(anchor)
+			}
+			return fmt.Sprintf(`<a class="wikilink" data-wikilink="%s" href="%s">%s</a>`, htmlstd.EscapeString(dest), htmlstd.EscapeString(href), htmlstd.EscapeString(label))
+		})
 	})
 }
 
@@ -302,16 +300,16 @@ func backlinksFromRaws(raws []rawFile, lookup map[string]string, rel string) []s
 			continue
 		}
 		linked := false
-		matches := wikiTargetRe.FindAllStringSubmatch(o.b, -1)
-		for _, m := range matches {
-			if m[1] != "" {
-				continue
-			}
-			targetKey := strings.ToLower(strings.TrimSpace(m[2]))
-			if dest, ok := lookup[targetKey]; ok && dest == rel {
-				linked = true
-				break
-			}
+		if len(o.b) <= 1<<20 {
+			mapOutsideCode(o.b, func(seg string) string {
+				for _, m := range wikiTargetRe.FindAllStringSubmatch(seg, -1) {
+					targetKey := strings.ToLower(strings.TrimSpace(m[1]))
+					if dest, ok := lookup[targetKey]; ok && dest == rel {
+						linked = true
+					}
+				}
+				return seg
+			})
 		}
 		if !linked {
 			for _, dest := range collectMarkdownDocLinks(o.rel, o.b) {

@@ -33,7 +33,7 @@ type frontMatter struct {
 }
 
 var (
-	wikiTargetRe = regexp.MustCompile("(?s)(```.*?```|`[^`\\n]+`)|" + `\[\[([^\]|#]+)(?:#[^\]|]+)?(?:\|[^\]]+)?\]\]`)
+	wikiTargetRe = regexp.MustCompile(`\[\[([^\]|#]+)(?:#[^\]|]+)?(?:\|[^\]]+)?\]\]`)
 )
 
 func parseFrontMatter(raw string) (frontMatter, string) {
@@ -201,16 +201,18 @@ func (s *Server) listFiles() ([]FileEntry, error) {
 
 	for _, r := range raws {
 		count := 0
-		matches := wikiTargetRe.FindAllStringSubmatch(r.b, -1)
-		for _, m := range matches {
-			if m[1] != "" {
-				continue
-			}
-			count++
-			targetKey := strings.ToLower(strings.TrimSpace(m[2]))
-			if dest, ok := targetLookup[targetKey]; ok && dest != r.rel {
-				backlinks[dest][r.rel] = true
-			}
+		wikiBody := r.b
+		if len(wikiBody) <= 1<<20 {
+			mapOutsideCode(wikiBody, func(seg string) string {
+				for _, m := range wikiTargetRe.FindAllStringSubmatch(seg, -1) {
+					count++
+					targetKey := strings.ToLower(strings.TrimSpace(m[1]))
+					if dest, ok := targetLookup[targetKey]; ok && dest != r.rel {
+						backlinks[dest][r.rel] = true
+					}
+				}
+				return seg
+			})
 		}
 		for _, dest := range collectMarkdownDocLinks(r.rel, r.b) {
 			count++
