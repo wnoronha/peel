@@ -293,9 +293,13 @@ func (s *Server) emitFeedback(fb Feedback) {
 }
 
 func (s *Server) handleFeedbackDelete(w http.ResponseWriter, r *http.Request) {
-	id := r.URL.Query().Get("id")
+	id := strings.TrimSpace(r.URL.Query().Get("id"))
 	if id == "" {
 		http.Error(w, "missing id", http.StatusBadRequest)
+		return
+	}
+	if len(id) > 128 {
+		http.Error(w, "id too large", http.StatusBadRequest)
 		return
 	}
 
