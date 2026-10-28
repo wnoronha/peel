@@ -237,10 +237,10 @@
 
   <div id="toasts" aria-live="polite" aria-relevant="additions">
     <template x-for="t in toasts" :key="t.id">
-      <button type="button" class="toast" :class="'toast-' + t.kind" @click="onToastClick(t)" :title="t.action === 'feedback' ? 'Open Feedback' : ''">
+      <div class="toast" :class="'toast-' + t.kind" @click="onToastClick(t)" role="button" tabindex="0" @keydown.enter.prevent="onToastClick(t)" :title="t.action === 'feedback' ? 'Open Feedback' : ''">
         <span class="toast-msg" x-text="t.message"></span>
-        <span class="toast-x" @click.stop="dismissToast(t.id)" aria-label="Dismiss">×</span>
-      </button>
+        <button type="button" class="toast-x" @click.stop="dismissToast(t.id)" aria-label="Dismiss">×</button>
+      </div>
     </template>
   </div>
 
