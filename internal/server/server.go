@@ -34,6 +34,7 @@ func New(root string) *Server {
 }
 
 var (
+	webFSMu        sync.RWMutex
 	webFS         fs.FS
 	staticHandler http.Handler
 )
@@ -54,13 +55,23 @@ var mediaExtensions = map[string]bool{
 
 // SetWebFS wires the embedded web/ filesystem.
 func SetWebFS(f fs.FS) {
+	webFSMu.Lock()
+	defer webFSMu.Unlock()
 	webFS = f
 	staticHandler = http.FileServer(http.FS(f))
 }
 
 // SetStatic keeps compatibility for custom handlers if needed.
 func SetStatic(h http.Handler) {
+	webFSMu.Lock()
+	defer webFSMu.Unlock()
 	staticHandler = h
+}
+
+func getStatic() (fs.FS, http.Handler) {
+	webFSMu.RLock()
+	defer webFSMu.RUnlock()
+	return webFS, staticHandler
 }
 
 // safeJoin resolves a root-relative rel path and rejects traversal and symlinks.
@@ -158,19 +169,20 @@ func (s *Server) Run(addr string) error {
 	})
 
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		webFSLocal, staticLocal := getStatic()
 		path := strings.TrimPrefix(r.URL.Path, "/")
 		if path == "" || path == "index.html" {
-			if staticHandler != nil {
+			if staticLocal != nil {
 				w.Header().Set("Cache-Control", "no-store")
-				staticHandler.ServeHTTP(w, r)
+				staticLocal.ServeHTTP(w, r)
 				return
 			}
 		}
-		if webFS != nil {
-			if f, err := webFS.Open(path); err == nil {
+		if webFSLocal != nil {
+			if f, err := webFSLocal.Open(path); err == nil {
 				_ = f.Close()
 				w.Header().Set("Cache-Control", "no-store")
-				staticHandler.ServeHTTP(w, r)
+				staticLocal.ServeHTTP(w, r)
 				return
 			}
 		}
