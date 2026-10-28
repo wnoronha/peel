@@ -215,6 +215,13 @@ func (s *Server) broadcast(msg string) {
 	}
 }
 
+func (s *Server) Close() error {
+	if s.watcher != nil {
+		return s.watcher.Close()
+	}
+	return nil
+}
+
 func (s *Server) startWatcher() error {
 	w, err := fsnotify.NewWatcher()
 	if err != nil {
@@ -233,11 +240,15 @@ func (s *Server) startWatcher() error {
 		if strings.HasPrefix(base, ".") || base == "node_modules" {
 			return filepath.SkipDir
 		}
-		_ = w.Add(p)
+		if err := w.Add(p); err != nil {
+			fmt.Fprintln(os.Stderr, "watch add:", p, err)
+		}
 		return nil
 	})
 
+	prune := time.NewTicker(5 * time.Minute)
 	go func() {
+		defer prune.Stop()
 		for {
 			select {
 			case ev, ok := <-w.Events:
@@ -249,9 +260,14 @@ func (s *Server) startWatcher() error {
 					if st, err := os.Stat(ev.Name); err == nil && st.IsDir() {
 						base := filepath.Base(ev.Name)
 						if !strings.HasPrefix(base, ".") && base != "node_modules" {
-							_ = w.Add(ev.Name)
+							if err := w.Add(ev.Name); err != nil {
+								fmt.Fprintln(os.Stderr, "watch add:", ev.Name, err)
+							}
 						}
 					}
+				}
+				if ev.Op&fsnotify.Remove != 0 || ev.Op&fsnotify.Rename != 0 {
+					_ = w.Remove(ev.Name)
 				}
 				// watch .md and .c4 changes
 				ext := strings.ToLower(filepath.Ext(ev.Name))
@@ -266,6 +282,17 @@ func (s *Server) startWatcher() error {
 				if now.Sub(last) >= 300*time.Millisecond {
 					s.debounce[rel] = now
 				}
+				// Bound debounce map to avoid leak on huge trees.
+				if len(s.debounce) > 2000 {
+					for k, v := range s.debounce {
+						if now.Sub(v) > 5*time.Minute {
+							delete(s.debounce, k)
+						}
+					}
+					if len(s.debounce) > 2000 {
+						clear(s.debounce)
+					}
+				}
 				s.mu.Unlock()
 				if now.Sub(last) < 300*time.Millisecond {
 					continue
@@ -277,6 +304,15 @@ func (s *Server) startWatcher() error {
 					return
 				}
 				fmt.Fprintln(os.Stderr, "watch:", err)
+			case <-prune.C:
+				now := time.Now()
+				s.mu.Lock()
+				for k, v := range s.debounce {
+					if now.Sub(v) > 5*time.Minute {
+						delete(s.debounce, k)
+					}
+				}
+				s.mu.Unlock()
 			}
 		}
 	}()
