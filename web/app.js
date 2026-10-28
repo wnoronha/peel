@@ -855,6 +855,16 @@ function peelApp() {
       return a;
     },
 
+    makeNotePayload(rawQuote, note) {
+      const anchor = this.feedbackAnchor();
+      let quote = rawQuote;
+      if (anchor.c4Id && (/[«»]|<<|\n/.test(quote) || quote.length > 80)) {
+        quote = anchor.c4Label || anchor.c4Id;
+      }
+      const [sl, el] = this.lineRangeFor(quote, anchor.c4Id, anchor.c4From, anchor.c4To);
+      return { quote, body: { type: 'note', file: this.current, quote, startLine: sl, endLine: el, note, ...anchor } };
+    },
+
     async saveComposer() {
       if (this._saving) return;
       const box = document.querySelector('#composer textarea');
@@ -862,13 +872,8 @@ function peelApp() {
       if (!this.selQuote || !note) return;
       this._saving = true;
       try {
-      const anchor = this.feedbackAnchor();
-      let quote = this.selQuote;
-      if (anchor.c4Id && (/[«»]|<<|\n/.test(quote) || quote.length > 80)) {
-        quote = anchor.c4Label || anchor.c4Id;
-      }
-      const [sl, el] = this.lineRangeFor(quote, anchor.c4Id, anchor.c4From, anchor.c4To);
-      const body = { type: 'note', file: this.current, quote, startLine: sl, endLine: el, note: this.composerNote.trim(), ...anchor };
+      const made = this.makeNotePayload(this.selQuote, this.composerNote.trim());
+      const body = made.body;
       if (this.composerAction) body.action = this.composerAction;
       const r = await fetch('/api/feedback', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       if (r.ok) {
@@ -887,6 +892,8 @@ function peelApp() {
         window.getSelection().removeAllRanges();
         this.loadFeedback();
         this.refreshTotal();
+      } else {
+        this.toast('Save failed', { kind: 'warn' });
       }
       } finally {
         this._saving = false;
@@ -1075,10 +1082,9 @@ function peelApp() {
       if (!q || !note) return;
       this._saving = true;
       try {
-      const anchor = this.feedbackAnchor();
-      if (anchor.c4Id && (/[«»]|<<|\n/.test(q) || q.length > 80)) q = anchor.c4Label || anchor.c4Id;
-      const [sl, el] = this.lineRangeFor(q, anchor.c4Id, anchor.c4From, anchor.c4To);
-      const body = { type: 'note', file: this.current, quote: q, startLine: sl, endLine: el, note, ...anchor };
+      const made = this.makeNotePayload(q, note);
+      q = made.quote;
+      const body = made.body;
       if (this.noteAction) body.action = this.noteAction;
       const r = await fetch('/api/feedback', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       if (r.ok) {
@@ -1096,6 +1102,8 @@ function peelApp() {
         window.getSelection().removeAllRanges();
         this.loadFeedback();
         this.refreshTotal();
+      } else {
+        this.toast('Save failed', { kind: 'warn' });
       }
       } finally {
         this._saving = false;
