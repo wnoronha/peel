@@ -1037,10 +1037,35 @@ function peelApp() {
       const c = this.searchRoot();
       if (!c) return;
       c.querySelectorAll('.fb-mark').forEach(m => m.classList.remove('fb-mark', 'm0', 'm1', 'm2'));
+      // Index text blocks once per pass instead of walking per note.
+      const nodes = [];
+      try {
+        const walker = document.createTreeWalker(c, NodeFilter.SHOW_TEXT);
+        let node;
+        while ((node = walker.nextNode())) {
+          const txt = (node.textContent || '').replace(/\s+/g, ' ');
+          if (txt.length < 4) continue;
+          const host = node.parentElement && node.parentElement.closest ? node.parentElement : null;
+          const block = host ? (host.closest('p,li,h1,h2,h3,h4,blockquote,td,.slide') || host.closest('.pele-diagram,pre')) : null;
+          if (block) nodes.push({ text: txt, block });
+        }
+      } catch (_) { /* ignore */ }
+      const findInIndex = (quote) => {
+        const anchor = (quote || '').replace(/\s+/g, ' ').trim();
+        if (anchor.length < 4 || !nodes.length) return null;
+        const probes = [anchor.slice(0, 60), anchor.slice(0, 40), anchor.slice(0, 20), anchor.slice(0, 10)]
+          .filter((p, idx, arr) => p.length >= 4 && arr.indexOf(p) === idx);
+        for (const probe of probes) {
+          for (const n of nodes) {
+            if (n.text.includes(probe)) return n.block;
+          }
+        }
+        return null;
+      };
       // Only open notes mark the doc — acked/dismissed stay in the list but don't paint.
       const list = (this.feedbackNotes || []).filter(f => f.status === 'open' && f.file === this.current);
       list.forEach((f, i) => {
-        const block = this.findBlockForQuote(f.quote);
+        const block = findInIndex(f.quote);
         if (block && c.contains(block)) block.classList.add('fb-mark', 'm' + (i % 3));
       });
     },
