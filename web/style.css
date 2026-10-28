@@ -234,7 +234,7 @@ table[data-component="rankings"] td.type{text-align:center;color:var(--color-tex
 #content pre{max-width:100%}
 #content img{max-width:100%;height:auto}
 /* annotation marks — semantic ramp (in-product) */
-.fb-mark{border-radius:var(--radius-sm);box-shadow:inset 3px 0 0 var(--color-success);background:color-mix(in srgb, var(--color-success) 12%, transparent);padding-left:10px}
+.fb-mark{border-radius:var(--radius-sm);box-shadow:inset 3px 0 0 var(--color-success);background:color-mix(in srgb, var(--color-success) 12%, transparent)}
 .fb-mark.m1{box-shadow:inset 3px 0 0 var(--color-danger);background:color-mix(in srgb, var(--color-danger) 12%, transparent)}
 .fb-mark.m2{box-shadow:inset 3px 0 0 var(--color-warning);background:color-mix(in srgb, var(--color-warning) 12%, transparent)}
 /* floating annotation composer */
