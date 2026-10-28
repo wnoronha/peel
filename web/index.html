@@ -92,11 +92,11 @@
       <div id="filetable-wrap" :class="{scroll: showAll && visibleFiles.length > 5}">
       <table data-component="rankings">
         <thead><tr>
-          <th @click="sort('path')">File <span x-show="sortKey==='path'" x-text="sortDir===1?'▲':'▼'"></span></th><th class="num" @click="sort('links')">Links <span x-show="sortKey==='links'" x-text="sortDir===1?'▲':'▼'"></span></th>
+          <th @click="sort('path')" @keydown.enter.prevent="sort('path')" tabindex="0" role="columnheader" :aria-sort="sortKey==='path' ? (sortDir===1 ? 'ascending' : 'descending') : 'none'">File <span x-show="sortKey==='path'" x-text="sortDir===1?'▲':'▼'"></span></th><th class="num" @click="sort('links')" @keydown.enter.prevent="sort('links')" tabindex="0" role="columnheader" :aria-sort="sortKey==='links' ? (sortDir===1 ? 'ascending' : 'descending') : 'none'">Links <span x-show="sortKey==='links'" x-text="sortDir===1?'▲':'▼'"></span></th>
         </tr></thead>
         <tbody id="filelist">
           <template x-for="(f, i) in visibleFiles" :key="f.path">
-            <tr class="row" :class="{active: current===f.path}" @click="navFile(f.path)">
+            <tr class="row" :class="{active: current===f.path}" @click="navFile(f.path)" @keydown.enter.prevent="navFile(f.path)" tabindex="0" role="button" :aria-label="'Open ' + f.path">
               <td><div class="file-row"><span class="type" x-text="typeIcon(f.type)" :title="f.type"></span><a href="#" @click.prevent.stop="navFile(f.path)" :title="f.path" x-text="f.path"></a></div><div class="weak file-title" x-text="f.title"></div></td>
               <td class="num" x-text="`${f.backlinks||0}← ${f.links||0}→`"></td>
             </tr>
