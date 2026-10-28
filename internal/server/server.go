@@ -177,7 +177,19 @@ func (s *Server) Run(addr string) error {
 		}
 		http.NotFound(w, r)
 	})
-	return http.ListenAndServe(addr, mux)
+	srv := s.newHTTPServer(addr, mux)
+	return srv.ListenAndServe()
+}
+
+func (s *Server) newHTTPServer(addr string, handler http.Handler) *http.Server {
+	return &http.Server{
+		Addr:              addr,
+		Handler:           handler,
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      60 * time.Second,
+		IdleTimeout:       120 * time.Second,
+	}
 }
 
 func writeJSON(w http.ResponseWriter, v any) {
@@ -187,8 +199,12 @@ func writeJSON(w http.ResponseWriter, v any) {
 
 func (s *Server) broadcast(msg string) {
 	s.mu.Lock()
-	defer s.mu.Unlock()
+	clients := make([]chan string, 0, len(s.clients))
 	for ch := range s.clients {
+		clients = append(clients, ch)
+	}
+	s.mu.Unlock()
+	for _, ch := range clients {
 		select {
 		case ch <- msg:
 		default:
@@ -244,13 +260,13 @@ func (s *Server) startWatcher() error {
 				now := time.Now()
 				s.mu.Lock()
 				last := s.debounce[rel]
+				if now.Sub(last) >= 300*time.Millisecond {
+					s.debounce[rel] = now
+				}
 				s.mu.Unlock()
 				if now.Sub(last) < 300*time.Millisecond {
 					continue
 				}
-				s.mu.Lock()
-				s.debounce[rel] = now
-				s.mu.Unlock()
 				msg, _ := json.Marshal(map[string]string{"type": "reload", "path": rel})
 				s.broadcast(string(msg))
 			case err, ok := <-w.Errors:
