@@ -388,7 +388,9 @@ func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
 		s.mu.Unlock()
 	}()
 	ctx := r.Context()
-	w.Write([]byte(": connected\n\n"))
+	if _, err := w.Write([]byte(": connected\n\n")); err != nil {
+		return
+	}
 	fl.Flush()
 	tick := time.NewTicker(20 * time.Second)
 	defer tick.Stop()
@@ -397,10 +399,14 @@ func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
 		case <-ctx.Done():
 			return
 		case msg := <-ch:
-			w.Write([]byte("data: " + msg + "\n\n"))
+			if _, err := w.Write([]byte("data: " + msg + "\n\n")); err != nil {
+				return
+			}
 			fl.Flush()
 		case <-tick.C:
-			w.Write([]byte(": hb\n\n"))
+			if _, err := w.Write([]byte(": hb\n\n")); err != nil {
+				return
+			}
 			fl.Flush()
 		}
 	}
