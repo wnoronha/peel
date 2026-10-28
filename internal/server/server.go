@@ -35,7 +35,7 @@ func New(root string) *Server {
 }
 
 var (
-	webFSMu        sync.RWMutex
+	webFSMu       sync.RWMutex
 	webFS         fs.FS
 	staticHandler http.Handler
 )
