@@ -132,7 +132,7 @@
       <div id="c4bar" x-show="doc?.type === 'c4'" @click.outside="if (metaOpen==='c4level') metaOpen=null">
         <div class="c4-level">
           <button type="button" class="c4-level-btn" @click="toggleMeta('c4level')" :aria-expanded="metaOpen==='c4level'" aria-haspopup="listbox" :aria-label="c4LevelKind ? (c4LevelKind + ' — ' + c4LevelName) : 'Choose C4 diagram level'" :title="c4LevelKind ? (c4LevelKind + ' · ' + c4LevelPos) : c4LevelPos">
-            <svg class="c4-level-ico" aria-hidden="true" x-show="c4KindIcon()"><use :href="'#lucide-' + c4KindIcon()"></use></svg>
+            <svg class="c4-level-ico" aria-hidden="true" x-show="c4KindIcon()"><use :href="c4KindIcon() ? '#lucide-' + c4KindIcon() : ''"></use></svg>
             <span class="c4-level-value" x-text="c4LevelName">—</span>
             <span class="c4-level-chev" aria-hidden="true">▾</span>
           </button>
