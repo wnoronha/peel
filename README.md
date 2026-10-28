@@ -59,7 +59,9 @@ Contract: `docs/feedback-contract.md`. Playbook: `docs/agent-loop.md`.
 | `GET /api/feedback` | Folded open notes; `?all=1` raw log |
 | `POST /api/feedback` | Append note, ack, or tombstone |
 | `DELETE /api/feedback?id=` | Tombstone an open note |
-| `GET /events` | SSE: `{type:reload\|feedback,…}` |
+| `GET /api/agent` | Ephemeral presence (`working` \| `idle`) |
+| `POST /api/agent` | Set presence |
+| `GET /events` | SSE: `{type:reload\|feedback\|agent,…}` |
 | `GET /healthz` | `ok` |
 
 Full reference: `docs/api.md`.

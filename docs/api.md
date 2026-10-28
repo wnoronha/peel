@@ -20,7 +20,7 @@ Agents should prefer [`skills/peel/peel_api.py`](../skills/peel/peel_api.py) ove
 
 ## `GET /api/files`
 
-Sorted by path. Skips `.git`, `.peel`, `node_modules`. Only `.md`, `.markdown`, `.c4`.
+Sorted by path. Skips `.git`, `.peel`, `node_modules`. Only `.md`, `.c4`.
 
 ```json
 { "root": "docs", "files": [
