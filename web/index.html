@@ -97,7 +97,7 @@
         <tbody id="filelist">
           <template x-for="(f, i) in visibleFiles" :key="f.path">
             <tr class="row" :class="{active: current===f.path}" @click="navFile(f.path)">
-              <td><div class="file-row"><span class="type" x-text="typeIcon(f.type)" :title="f.type"></span><a href="#" @click.prevent="navFile(f.path)" :title="f.path" x-text="f.path"></a></div><div class="weak file-title" x-text="f.title"></div></td>
+              <td><div class="file-row"><span class="type" x-text="typeIcon(f.type)" :title="f.type"></span><a href="#" @click.prevent.stop="navFile(f.path)" :title="f.path" x-text="f.path"></a></div><div class="weak file-title" x-text="f.title"></div></td>
               <td class="num" x-text="`${f.backlinks||0}← ${f.links||0}→`"></td>
             </tr>
           </template>

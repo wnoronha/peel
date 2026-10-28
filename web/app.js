@@ -346,11 +346,12 @@ function peelApp() {
     },
 
     async openFile(path, opts = {}) {
-      this.current = path;
-      this.metaOpen = null;
+      if (!path) return;
       const r = await fetch('/api/doc?path=' + encodeURIComponent(path));
       if (!r.ok) return;
       const d = await r.json();
+      this.current = path;
+      this.metaOpen = null;
       this.doc = d;
       this.slideIdx = 0;
       this.levelIdx = 0;
