@@ -91,7 +91,8 @@ func c4Kind(src string) string {
 }
 
 // splitC4Levels: .c4 sources hold one C4 diagram per level, separated by
-// a line containing exactly ---. Returns section sources.
+// a line containing exactly ---. Fenced blocks may contain literal ---.
+// Returns section sources.
 func splitC4Levels(body string) []string {
 	var out []string
 	var cur []string
@@ -102,8 +103,15 @@ func splitC4Levels(body string) []string {
 		}
 		cur = nil
 	}
+	inFence := false
 	for _, ln := range strings.Split(body, "\n") {
-		if strings.TrimSpace(strings.TrimRight(ln, "\r")) == "---" {
+		trim := strings.TrimSpace(strings.TrimRight(ln, "\r"))
+		if strings.HasPrefix(trim, "```") || strings.HasPrefix(trim, "~~~") {
+			inFence = !inFence
+			cur = append(cur, ln)
+			continue
+		}
+		if !inFence && trim == "---" {
 			flush()
 			continue
 		}
