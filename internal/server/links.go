@@ -92,15 +92,6 @@ func resolveLocalDocRef(fromRel, href string) (rel, anchor string, ok bool) {
 	return joined, anchor, true
 }
 
-// knownDocSet builds a set of slash-relative paths that exist under the root.
-func (s *Server) knownDocSet() map[string]bool {
-	known := make(map[string]bool)
-	for _, r := range s.scanRawFiles() {
-		known[r.rel] = true
-	}
-	return known
-}
-
 func attrVal(n *html.Node, key string) string {
 	for _, a := range n.Attr {
 		if a.Key == key {

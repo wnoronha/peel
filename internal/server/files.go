@@ -46,6 +46,7 @@ func parseFrontMatter(raw string) (frontMatter, string) {
 		return fm, raw
 	}
 	fmText := rest[:idx]
+	// Malformed frontmatter is treated as no frontmatter.
 	_ = yaml.Unmarshal([]byte(fmText), &fm)
 	body := rest[idx+4:]
 	body = strings.TrimLeft(body, "\r\n")
@@ -185,45 +186,6 @@ func (s *Server) scanRawFiles() []rawFile {
 		return nil
 	})
 	return raws
-}
-
-// targetMap returns lookup keys mapped to canonical relative paths.
-func (s *Server) targetMap() map[string]string {
-	lookup := make(map[string]string)
-	_ = filepath.WalkDir(s.root, func(p string, d fs.DirEntry, err error) error {
-		if err != nil || d.IsDir() {
-			if d != nil && d.IsDir() {
-				base := filepath.Base(p)
-				if strings.HasPrefix(base, ".") || base == "node_modules" {
-					return filepath.SkipDir
-				}
-			}
-			return nil
-		}
-		ext := strings.ToLower(filepath.Ext(p))
-		if ext != ".md" && ext != ".c4" {
-			return nil
-		}
-		if info, err := os.Lstat(p); err == nil && info.Mode()&os.ModeSymlink != 0 {
-			return nil
-		}
-		rel, _ := filepath.Rel(s.root, p)
-		rel = filepath.ToSlash(rel)
-		base := strings.ToLower(strings.TrimSuffix(filepath.Base(rel), filepath.Ext(rel)))
-		noExt := strings.ToLower(strings.TrimSuffix(rel, filepath.Ext(rel)))
-		full := strings.ToLower(rel)
-		if _, ok := lookup[base]; !ok {
-			lookup[base] = rel
-		}
-		if _, ok := lookup[noExt]; !ok {
-			lookup[noExt] = rel
-		}
-		if _, ok := lookup[full]; !ok {
-			lookup[full] = rel
-		}
-		return nil
-	})
-	return lookup
 }
 
 func (s *Server) listFiles() ([]FileEntry, error) {
