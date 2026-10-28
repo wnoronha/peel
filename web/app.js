@@ -176,7 +176,11 @@ function peelApp() {
         }
       });
       window.addEventListener('resize', () => {
-        if (this.doc?.type === 'c4' && this.c4AutoFit) this.c4ZoomFit();
+        if (this._resizeT) return;
+        this._resizeT = setTimeout(() => {
+          this._resizeT = null;
+          if (this.doc?.type === 'c4' && this.c4AutoFit) this.c4ZoomFit();
+        }, 150);
       });
       this.loadFiles().then(() => {
         const params = new URLSearchParams(location.search);
