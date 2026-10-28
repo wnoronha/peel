@@ -3,6 +3,7 @@ package server
 import (
 	"bytes"
 	"fmt"
+	htmlstd "html"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -92,20 +93,20 @@ func (s *Server) expandWikilinks(body string, targetMap map[string]string) strin
 		}
 		dest := targetMap[strings.ToLower(target)]
 		if dest == "" {
-			return fmt.Sprintf(`<span class="wikilink-missing">%s</span>`, label)
+			return fmt.Sprintf(`<span class="wikilink-missing">%s</span>`, htmlstd.EscapeString(label))
 		}
 		href := fmt.Sprintf("?file=%s", dest)
 		if anchor != "" {
 			href += "#" + slugify(anchor)
 		}
-		return fmt.Sprintf(`<a class="wikilink" data-wikilink="%s" href="%s">%s</a>`, dest, href, label)
+		return fmt.Sprintf(`<a class="wikilink" data-wikilink="%s" href="%s">%s</a>`, htmlstd.EscapeString(dest), htmlstd.EscapeString(href), htmlstd.EscapeString(label))
 	})
 }
 
 func renderMarkdown(src string) string {
 	var buf bytes.Buffer
 	if err := md.Convert([]byte(src), &buf); err != nil {
-		return "<pre>" + err.Error() + "</pre>"
+		return "<pre>" + htmlstd.EscapeString(err.Error()) + "</pre>"
 	}
 	return buf.String()
 }
