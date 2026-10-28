@@ -718,6 +718,7 @@ function peelApp() {
 
     onSelect() {
       let q = this.selectedQuote();
+      if (q && q.replace(/\s+/g, '').length < 3) q = '';
       const inNote = this.$refs.note && this.$refs.note.contains(document.activeElement);
       const inCmp = document.querySelector('#composer textarea') && document.querySelector('#composer textarea').contains(document.activeElement);
       if (q && !inNote && !inCmp) {
