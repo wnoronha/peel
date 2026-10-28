@@ -398,7 +398,8 @@ function peelApp() {
           strip.append(n, t);
           strip.addEventListener('click', () => this.showSlide(i));
           div.prepend(strip);
-          div.addEventListener('click', () => {
+          div.addEventListener('click', (ev) => {
+            if (ev.target.closest('a,button')) return;
             if (window.getSelection().isCollapsed) this.showSlide(i);
           });
           c.appendChild(div);
