@@ -122,7 +122,14 @@ function peelApp() {
       document.documentElement.dataset.theme = stored || 'dark';
       if (localStorage.getItem('peel-left') === '1') this.leftOpen = true;
       if (localStorage.getItem('peel-right') === '1') this.rightOpen = true;
-      document.addEventListener('selectionchange', () => this.onSelect());
+      document.addEventListener('selectionchange', () => {
+        if (this._selQueued) return;
+        this._selQueued = true;
+        requestAnimationFrame(() => {
+          this._selQueued = false;
+          try { this.onSelect(); } catch (_) { /* ignore */ }
+        });
+      });
       document.addEventListener('keydown', e => {
         const mod = e.ctrlKey || e.metaKey;
         const key = e.key.toLowerCase();
