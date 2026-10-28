@@ -28,13 +28,39 @@ type agentStored struct {
 	until time.Time
 }
 
+func (s *Server) expireAgentIfDue() bool {
+	s.mu.Lock()
+	expired := s.agent.State == "working" && !s.agent.until.IsZero() && s.agent.until.Before(time.Now())
+	if expired {
+		s.agent = agentStored{State: "idle"}
+	}
+	s.mu.Unlock()
+	if expired {
+		s.emitAgent(AgentStatus{State: "idle"})
+	}
+	return expired
+}
+
+func (s *Server) startAgentJanitor(stop <-chan struct{}) {
+	tick := time.NewTicker(time.Minute)
+	defer tick.Stop()
+	for {
+		select {
+		case <-stop:
+			return
+		case <-tick.C:
+			s.expireAgentIfDue()
+		}
+	}
+}
+
 func (s *Server) getAgentStatus() AgentStatus {
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	if s.agent.State == "working" && !s.agent.until.IsZero() && s.agent.until.Before(time.Now()) {
 		s.agent = agentStored{State: "idle"}
 	}
 	out := AgentStatus{State: s.agent.State, Ref: s.agent.Ref, Note: s.agent.Note, Since: s.agent.Since}
+	s.mu.Unlock()
 	if out.State == "" {
 		out.State = "idle"
 	}

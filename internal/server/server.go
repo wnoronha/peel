@@ -143,6 +143,7 @@ func (s *Server) Run(addr string) error {
 	if err := s.startWatcher(); err != nil {
 		return fmt.Errorf("watcher: %w", err)
 	}
+	go s.startAgentJanitor(nil)
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/files", s.handleFiles)
 	mux.HandleFunc("GET /api/doc", s.handleDoc)
