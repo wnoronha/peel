@@ -82,7 +82,7 @@
     <aside data-component="files" x-show="leftOpen">
       <div class="panel-body">
       <div data-component="section-head">
-        <button class="link-btn" @click="showAll=!showAll" :title="showAll ? 'Show recent 5' : 'Show all files'" x-text="showAll ? `All files (${visibleFiles.length}) ▴` : `Recent files (${visibleFiles.length}) ▾`">Recent files ▾</button>
+        <button class="link-btn" @click="showAll=!showAll" :title="showAll ? 'Show recent 5' : 'Show all files'" x-text="showAll ? `All files (${filteredFiles.length}) ▴` : `Recent files (${filteredFiles.length}) ▾`">Recent files ▾</button>
         <span><button class="mini-btn" @click="toggleLeft()" title="Close files panel ( [ )" aria-label="Close files panel">×</button></span>
       </div>
       <div data-component="tabs" role="tablist" style="margin-bottom:12px">

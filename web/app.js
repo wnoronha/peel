@@ -95,7 +95,7 @@ function peelApp() {
       const n = this.doc ? (this.doc.backlinks || []).length : 0;
       return `${n} ${n === 1 ? 'backlink' : 'backlinks'} ▾`;
     },
-    get visibleFiles() {
+    get filteredFiles() {
       const q = this.query.toLowerCase();
       const list = this.files.filter(f => {
         if (this.tab === 'docs' && f.type !== 'doc') return false;
@@ -114,7 +114,10 @@ function peelApp() {
       } else {
         list.sort((a, b) => String(b.modTime || '').localeCompare(String(a.modTime || '')));
       }
-      return this.showAll ? list : list.slice(0, 5);
+      return list;
+    },
+    get visibleFiles() {
+      return this.showAll ? this.filteredFiles : this.filteredFiles.slice(0, 5);
     },
 
     init() {
