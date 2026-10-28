@@ -194,7 +194,10 @@ func (s *Server) newHTTPServer(addr string, handler http.Handler) *http.Server {
 
 func writeJSON(w http.ResponseWriter, v any) {
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(v)
+	if err := json.NewEncoder(w).Encode(v); err != nil {
+		// Headers already sent; nothing more to do.
+		return
+	}
 }
 
 func (s *Server) broadcast(msg string) {

@@ -285,7 +285,11 @@ func (s *Server) listFiles() ([]FileEntry, error) {
 }
 
 func (s *Server) handleFiles(w http.ResponseWriter, r *http.Request) {
-	files, _ := s.listFiles()
+	files, err := s.listFiles()
+	if err != nil {
+		http.Error(w, "read", http.StatusInternalServerError)
+		return
+	}
 	if files == nil {
 		files = []FileEntry{}
 	}
