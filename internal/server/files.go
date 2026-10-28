@@ -156,6 +156,9 @@ func (s *Server) scanRawFiles() []rawFile {
 		if ext != ".md" && ext != ".c4" {
 			return nil
 		}
+		if info, err := os.Lstat(p); err == nil && info.Mode()&os.ModeSymlink != 0 {
+			return nil
+		}
 		rel, _ := filepath.Rel(s.root, p)
 		rel = filepath.ToSlash(rel)
 		info, _ := d.Info()
@@ -191,6 +194,9 @@ func (s *Server) targetMap() map[string]string {
 		}
 		ext := strings.ToLower(filepath.Ext(p))
 		if ext != ".md" && ext != ".c4" {
+			return nil
+		}
+		if info, err := os.Lstat(p); err == nil && info.Mode()&os.ModeSymlink != 0 {
 			return nil
 		}
 		rel, _ := filepath.Rel(s.root, p)

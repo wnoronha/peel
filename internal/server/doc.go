@@ -156,7 +156,7 @@ func (s *Server) handleDoc(w http.ResponseWriter, r *http.Request) {
 	if rel == "" {
 		rel = r.URL.Query().Get("file")
 	}
-	if rel == "" || strings.Contains(rel, "..") || filepath.IsAbs(rel) {
+	if rel == "" {
 		http.Error(w, "bad path", http.StatusBadRequest)
 		return
 	}
@@ -166,7 +166,11 @@ func (s *Server) handleDoc(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	abs := filepath.Join(s.root, filepath.FromSlash(rel))
+	abs, ok := s.safeJoin(rel)
+	if !ok {
+		http.Error(w, "bad path", http.StatusBadRequest)
+		return
+	}
 	rawBytes, err := os.ReadFile(abs)
 	if err != nil {
 		http.Error(w, "not found", http.StatusNotFound)

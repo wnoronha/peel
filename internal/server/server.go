@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -62,22 +63,73 @@ func SetStatic(h http.Handler) {
 	staticHandler = h
 }
 
-func (s *Server) serveRootAsset(w http.ResponseWriter, r *http.Request) bool {
-	clean := filepath.Clean(filepath.FromSlash(strings.TrimPrefix(r.URL.Path, "/")))
-	if strings.HasPrefix(clean, ".") || strings.Contains(clean, "..") {
-		return false
+// safeJoin resolves a root-relative rel path and rejects traversal and symlinks.
+func (s *Server) safeJoin(rel string) (string, bool) {
+	if rel == "" || filepath.IsAbs(rel) || filepath.IsAbs(filepath.FromSlash(rel)) {
+		return "", false
 	}
-	parts := strings.Split(filepath.ToSlash(clean), "/")
+	cleaned := path.Clean(filepath.ToSlash(rel))
+	if cleaned == "." || cleaned == ".." || strings.HasPrefix(cleaned, "../") || strings.HasPrefix(cleaned, "/") {
+		return "", false
+	}
+	for _, part := range strings.Split(cleaned, "/") {
+		if part == ".." || part == "." || part == "" {
+			return "", false
+		}
+	}
+	rootAbs, err := filepath.Abs(s.root)
+	if err != nil {
+		return "", false
+	}
+	abs := filepath.Join(rootAbs, filepath.FromSlash(cleaned))
+	relCheck, err := filepath.Rel(rootAbs, abs)
+	if err != nil || relCheck == ".." || strings.HasPrefix(relCheck, ".."+string(filepath.Separator)) {
+		return "", false
+	}
+	if fi, err := os.Lstat(abs); err == nil {
+		if fi.Mode()&os.ModeSymlink != 0 {
+			return "", false
+		}
+		if resolved, err := filepath.EvalSymlinks(abs); err == nil {
+			resAbs, err := filepath.Abs(resolved)
+			if err != nil {
+				return "", false
+			}
+			if rc, err := filepath.Rel(rootAbs, resAbs); err != nil || rc == ".." || strings.HasPrefix(rc, ".."+string(filepath.Separator)) {
+				return "", false
+			}
+			return resAbs, true
+		}
+		return "", false
+	}
+	// File does not exist: verify parent dir resolves inside root.
+	parent := filepath.Dir(abs)
+	if presolved, err := filepath.EvalSymlinks(parent); err == nil {
+		if rp, err := filepath.Rel(rootAbs, presolved); err != nil || rp == ".." || strings.HasPrefix(rp, ".."+string(filepath.Separator)) {
+			return "", false
+		}
+	}
+	return abs, true
+}
+
+func (s *Server) serveRootAsset(w http.ResponseWriter, r *http.Request) bool {
+	rel := strings.TrimPrefix(r.URL.Path, "/")
+	parts := strings.Split(filepath.ToSlash(rel), "/")
 	for _, part := range parts {
 		if strings.HasPrefix(part, ".") || part == "node_modules" {
 			return false
 		}
 	}
-	ext := strings.ToLower(filepath.Ext(clean))
+	// safeJoin rejects traversal, absolute paths, and symlinks.
+	cleaned := path.Clean(filepath.ToSlash(rel))
+	ext := strings.ToLower(filepath.Ext(cleaned))
 	if !mediaExtensions[ext] {
 		return false
 	}
-	abs := filepath.Join(s.root, clean)
+	abs, ok := s.safeJoin(cleaned)
+	if !ok {
+		return false
+	}
 	st, err := os.Stat(abs)
 	if err != nil || st.IsDir() {
 		return false
