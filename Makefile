@@ -1,4 +1,4 @@
-VERSION ?= v0.1.3
+VERSION ?= $(shell grep -oP 'Version\s*=\s*"\K[^"]+' main.go 2>/dev/null || echo "v0.1.3")
 COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo "dev")
 DATE ?= $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 LDFLAGS := -X main.Version=$(VERSION) -X main.Commit=$(COMMIT) -X main.BuildDate=$(DATE)
