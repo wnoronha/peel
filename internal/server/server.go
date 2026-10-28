@@ -134,6 +134,7 @@ func (s *Server) serveRootAsset(w http.ResponseWriter, r *http.Request) bool {
 	if err != nil || st.IsDir() {
 		return false
 	}
+	w.Header().Set("Cache-Control", "public, max-age=3600")
 	http.ServeFile(w, r, abs)
 	return true
 }
