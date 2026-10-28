@@ -1,6 +1,7 @@
 package server
 
 import (
+	"fmt"
 	"io/fs"
 	"net/http"
 	"os"
@@ -264,6 +265,21 @@ func (s *Server) handleFiles(w http.ResponseWriter, r *http.Request) {
 	}
 	if files == nil {
 		files = []FileEntry{}
+	}
+	var sum int64
+	var latest string
+	for _, f := range files {
+		sum += f.Size + int64(f.Words)
+		if f.ModTime > latest {
+			latest = f.ModTime
+		}
+	}
+	etag := `"` + fmt.Sprintf("%x-%d-%s", len(files), sum, latest) + `"`
+	w.Header().Set("ETag", etag)
+	w.Header().Set("Cache-Control", "no-cache")
+	if r.Header.Get("If-None-Match") == etag {
+		w.WriteHeader(http.StatusNotModified)
+		return
 	}
 	writeJSON(w, map[string]any{"root": filepath.Base(s.root), "files": files})
 }
