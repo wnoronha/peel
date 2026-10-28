@@ -186,6 +186,8 @@ func (s *Server) handleDoc(w http.ResponseWriter, r *http.Request) {
 	}
 	raw := string(rawBytes)
 
+	raws := s.scanRawFiles()
+	targetLookup, known := lookupFromRaws(raws)
 	resp := DocResponse{
 		Path:      rel,
 		Raw:       raw,
@@ -193,7 +195,7 @@ func (s *Server) handleDoc(w http.ResponseWriter, r *http.Request) {
 		Slides:    []string{},
 		Levels:    []C4Level{},
 		Outline:   []OutlineItem{},
-		Backlinks: s.backlinksFor(rel),
+		Backlinks: backlinksFromRaws(raws, targetLookup, rel),
 	}
 
 	if ext == ".c4" {
@@ -235,10 +237,8 @@ func (s *Server) handleDoc(w http.ResponseWriter, r *http.Request) {
 		resp.Outline = append(resp.Outline, OutlineItem{Level: len(m[1]), Text: text, Line: i + 1, ID: slugify(text)})
 	}
 
-	targetMap := s.targetMap()
-	known := s.knownDocSet()
 	render := func(src string) string {
-		return rewriteDocLinks(tagDiagrams(renderMarkdown(s.expandWikilinks(src, targetMap))), rel, known)
+		return rewriteDocLinks(tagDiagrams(renderMarkdown(s.expandWikilinks(src, targetLookup))), rel, known)
 	}
 	if fm.Marp {
 		resp.Type = "deck"
@@ -255,9 +255,28 @@ func (s *Server) handleDoc(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, resp)
 }
 
-func (s *Server) backlinksFor(rel string) []string {
-	targetLookup := s.targetMap()
-	raws := s.scanRawFiles()
+func lookupFromRaws(raws []rawFile) (map[string]string, map[string]bool) {
+	lookup := make(map[string]string, len(raws)*3)
+	known := make(map[string]bool, len(raws))
+	for _, r := range raws {
+		base := strings.ToLower(strings.TrimSuffix(filepath.Base(r.rel), filepath.Ext(r.rel)))
+		noExt := strings.ToLower(strings.TrimSuffix(r.rel, filepath.Ext(r.rel)))
+		full := strings.ToLower(r.rel)
+		if _, ok := lookup[base]; !ok {
+			lookup[base] = r.rel
+		}
+		if _, ok := lookup[noExt]; !ok {
+			lookup[noExt] = r.rel
+		}
+		if _, ok := lookup[full]; !ok {
+			lookup[full] = r.rel
+		}
+		known[r.rel] = true
+	}
+	return lookup, known
+}
+
+func backlinksFromRaws(raws []rawFile, lookup map[string]string, rel string) []string {
 	seen := make(map[string]bool)
 	var out []string
 
@@ -279,7 +298,7 @@ func (s *Server) backlinksFor(rel string) []string {
 				continue
 			}
 			targetKey := strings.ToLower(strings.TrimSpace(m[2]))
-			if dest, ok := targetLookup[targetKey]; ok && dest == rel {
+			if dest, ok := lookup[targetKey]; ok && dest == rel {
 				linked = true
 				break
 			}
@@ -301,4 +320,10 @@ func (s *Server) backlinksFor(rel string) []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+func (s *Server) backlinksFor(rel string) []string {
+	raws := s.scanRawFiles()
+	lookup, _ := lookupFromRaws(raws)
+	return backlinksFromRaws(raws, lookup, rel)
 }

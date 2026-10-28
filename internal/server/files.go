@@ -204,9 +204,15 @@ func (s *Server) targetMap() map[string]string {
 		base := strings.ToLower(strings.TrimSuffix(filepath.Base(rel), filepath.Ext(rel)))
 		noExt := strings.ToLower(strings.TrimSuffix(rel, filepath.Ext(rel)))
 		full := strings.ToLower(rel)
-		lookup[base] = rel
-		lookup[noExt] = rel
-		lookup[full] = rel
+		if _, ok := lookup[base]; !ok {
+			lookup[base] = rel
+		}
+		if _, ok := lookup[noExt]; !ok {
+			lookup[noExt] = rel
+		}
+		if _, ok := lookup[full]; !ok {
+			lookup[full] = rel
+		}
 		return nil
 	})
 	return lookup
@@ -214,15 +220,7 @@ func (s *Server) targetMap() map[string]string {
 
 func (s *Server) listFiles() ([]FileEntry, error) {
 	raws := s.scanRawFiles()
-	targetLookup := make(map[string]string)
-	for _, r := range raws {
-		base := strings.ToLower(strings.TrimSuffix(filepath.Base(r.rel), filepath.Ext(r.rel)))
-		noExt := strings.ToLower(strings.TrimSuffix(r.rel, filepath.Ext(r.rel)))
-		full := strings.ToLower(r.rel)
-		targetLookup[base] = r.rel
-		targetLookup[noExt] = r.rel
-		targetLookup[full] = r.rel
-	}
+	targetLookup, _ := lookupFromRaws(raws)
 
 	backlinks := make(map[string]map[string]bool)
 	for _, r := range raws {
