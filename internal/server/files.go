@@ -272,6 +272,10 @@ func (s *Server) listFiles() ([]FileEntry, error) {
 		if isC4 {
 			title = c4Title(r.b, r.rel)
 		}
+		words := r.bd
+		if isC4 {
+			words = r.b
+		}
 		out = append(out, FileEntry{
 			Path:      r.rel,
 			Name:      r.rel,
@@ -281,7 +285,7 @@ func (s *Server) listFiles() ([]FileEntry, error) {
 			Title:     title,
 			Size:      r.sz,
 			ModTime:   r.mt,
-			Words:     len(strings.Fields(r.b)),
+			Words:     len(strings.Fields(words)),
 			Links:     linkCount[r.rel],
 			Backlinks: len(backlinks[r.rel]),
 		})
