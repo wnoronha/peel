@@ -849,9 +849,12 @@ function peelApp() {
     },
 
     async saveComposer() {
+      if (this._saving) return;
       const box = document.querySelector('#composer textarea');
       const note = (this.composerNote || (box ? box.value : '')).trim();
       if (!this.selQuote || !note) return;
+      this._saving = true;
+      try {
       const anchor = this.feedbackAnchor();
       let quote = this.selQuote;
       if (anchor.c4Id && (/[«»]|<<|\n/.test(quote) || quote.length > 80)) {
@@ -877,6 +880,9 @@ function peelApp() {
         window.getSelection().removeAllRanges();
         this.loadFeedback();
         this.refreshTotal();
+      }
+      } finally {
+        this._saving = false;
       }
     },
 
@@ -1023,9 +1029,12 @@ function peelApp() {
     },
 
     async saveNote() {
+      if (this._saving) return;
       let q = this.selQuote || this.selectedQuote();
       const note = (this.noteText || (this.$refs.note ? this.$refs.note.value : '')).trim();
       if (!q || !note) return;
+      this._saving = true;
+      try {
       const anchor = this.feedbackAnchor();
       if (anchor.c4Id && (/[«»]|<<|\n/.test(q) || q.length > 80)) q = anchor.c4Label || anchor.c4Id;
       const [sl, el] = this.lineRangeFor(q, anchor.c4Id, anchor.c4From, anchor.c4To);
@@ -1047,6 +1056,9 @@ function peelApp() {
         window.getSelection().removeAllRanges();
         this.loadFeedback();
         this.refreshTotal();
+      }
+      } finally {
+        this._saving = false;
       }
     },
 
