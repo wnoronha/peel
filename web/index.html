@@ -271,12 +271,12 @@
       <ul id="gotoList" class="goto-list" role="listbox">
         <template x-for="(hit, i) in gotoHits" :key="hit.path">
           <li role="option" :class="{on: i === goto.idx}" :aria-selected="i === goto.idx"
-              @click="gotoOpen(hit.path)" @mousemove="goto.idx = i">
-            <span class="goto-score" x-text="hit.score"></span>
+              @click="gotoOpen(hit.path)" @mouseenter="goto.idx = i">
+            <span class="goto-score" x-text="hit.score === '·' ? '' : Math.round(hit.score)"></span>
             <span class="goto-type" x-text="typeIcon(hit.type)" :title="hit.type"></span>
             <span class="goto-body">
               <span class="goto-name" x-text="hit.name"></span>
-              <span class="goto-path weak" x-show="hit.title" x-text="hit.title"></span>
+              <span class="goto-path weak" x-text="[hit.dir, hit.title].filter(Boolean).join(' · ')"></span>
             </span>
           </li>
         </template>
