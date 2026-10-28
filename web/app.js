@@ -780,9 +780,10 @@ function peelApp() {
       if (!this.doc) return [0, 0];
       const lines = (this.doc.body || '').split('\n');
       if (c4From && c4To) {
+        const esc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const re = new RegExp('\\bRel[^\\n]*\\b' + esc(c4From) + '\\b[^\\n]*\\b' + esc(c4To) + '\\b|\\bRel[^\\n]*\\b' + esc(c4To) + '\\b[^\\n]*\\b' + esc(c4From) + '\\b');
         for (let i = 0; i < lines.length; i++) {
-          const line = lines[i];
-          if (/\bRel/.test(line) && line.includes(c4From) && line.includes(c4To)) return [i + 1, i + 1];
+          if (re.test(lines[i])) return [i + 1, i + 1];
         }
       }
       if (c4Id) {
