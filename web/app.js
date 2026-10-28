@@ -969,8 +969,12 @@ function peelApp() {
       return null;
     },
 
-    jumpToFeedback(f) {
-      if (!f || this.current !== f.file) { this.openFile(f.file); setTimeout(() => this.jumpToFeedback(f), 600); return; }
+    async jumpToFeedback(f) {
+      if (!f) return;
+      if (this.current !== f.file) {
+        await this.openFile(f.file);
+        if (this.current !== f.file) return;
+      }
       if (this.doc?.type === 'deck' && f.slide > 0) {
         this.showSlide(f.slide - 1, false);
       } else if (this.doc?.type === 'deck') {
