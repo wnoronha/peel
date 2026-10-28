@@ -354,10 +354,13 @@ function peelApp() {
     },
 
     async loadFiles() {
-      const r = await fetch('/api/files');
-      const j = await r.json();
-      this.files = j.files || [];
-      this.root = j.root || 'docs';
+      try {
+        const r = await fetch('/api/files');
+        if (!r.ok) return;
+        const j = await r.json();
+        this.files = j.files || [];
+        this.root = j.root || 'docs';
+      } catch (_) { /* keep previous list */ }
     },
 
     async openFile(path, opts = {}) {
