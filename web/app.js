@@ -1,5 +1,6 @@
 // Alpine component for peel. Loaded as a classic script (end of body) so it
 // registers on alpine:init before the deferred Alpine bundle initializes.
+const UI_TIMINGS = { resizeMs: 150, reloadMs: 1000, flashMs: 1400, toastMs: 3200, slideLockMs: 600 };
 function peelApp() {
   return {
     files: [], tab: 'all', current: null, doc: null, slideIdx: 0, levelIdx: 0, c4Zoom: 1, c4AutoFit: true,
@@ -180,7 +181,7 @@ function peelApp() {
         this._resizeT = setTimeout(() => {
           this._resizeT = null;
           if (this.doc?.type === 'c4' && this.c4AutoFit) this.c4ZoomFit();
-        }, 150);
+        }, UI_TIMINGS.resizeMs);
       });
       this.loadFiles().then(() => {
         const params = new URLSearchParams(location.search);
@@ -701,7 +702,7 @@ function peelApp() {
         const h = cur.querySelector('h1,h2,h3');
         this.slideTitle = h ? h.textContent : 'Slide ' + (this.slideIdx + 1);
         if (scroll) {
-          this._slideLock = Date.now() + 600;
+          this._slideLock = Date.now() + UI_TIMINGS.slideLockMs;
           cur.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         }
       }
@@ -1019,7 +1020,7 @@ function peelApp() {
           el.classList.remove('fb-flash');
           void el.offsetWidth;
           el.classList.add('fb-flash');
-          setTimeout(() => el.classList.remove('fb-flash'), 1400);
+          setTimeout(() => el.classList.remove('fb-flash'), UI_TIMINGS.flashMs);
           return;
         }
       }
@@ -1029,7 +1030,7 @@ function peelApp() {
       block.classList.remove('fb-flash');
       void block.offsetWidth;
       block.classList.add('fb-flash');
-      setTimeout(() => block.classList.remove('fb-flash'), 1400);
+      setTimeout(() => block.classList.remove('fb-flash'), UI_TIMINGS.flashMs);
     },
 
     async deleteFeedback(f) {
@@ -1203,17 +1204,17 @@ function peelApp() {
           const m = JSON.parse(e.data);
           if (m.type === 'reload') {
             const now = Date.now();
-            if (!this._lastReload || now - this._lastReload > 1000) {
+            if (!this._lastReload || now - this._lastReload > UI_TIMINGS.reloadMs) {
               this._lastReload = now;
               this.loadFiles();
             }
             if (m.path === this.current) {
               const hasDraft = this.composer && this.composer.open;
-              if (!hasDraft && (!this._lastOpen || now - this._lastOpen > 1000)) {
+              if (!hasDraft && (!this._lastOpen || now - this._lastOpen > UI_TIMINGS.reloadMs)) {
                 this._lastOpen = now;
                 this.openFile(this.current);
               }
-              this.toast('Doc updated · ' + m.path, { kind: 'info', ttl: 3200 });
+              this.toast('Doc updated · ' + m.path, { kind: 'info', ttl: UI_TIMINGS.toastMs });
             }
           } else if (m.type === 'feedback') {
             this.toastFromFeedback(m.event);
