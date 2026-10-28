@@ -331,6 +331,9 @@ func (s *Server) handleFeedbackDelete(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleFeedbackList(w http.ResponseWriter, r *http.Request) {
 	file := r.URL.Query().Get("file")
+	if file != "" {
+		file = pathCleanSlash(file)
+	}
 	all := r.URL.Query().Get("all") == "1" || r.URL.Query().Get("all") == "true"
 
 	events, err := s.readFeedbackEvents()
@@ -346,7 +349,7 @@ func (s *Server) handleFeedbackList(w http.ResponseWriter, r *http.Request) {
 			out = events
 		} else {
 			for _, ev := range events {
-				if feedbackType(ev) == FeedbackNote && ev.File == file {
+				if feedbackType(ev) == FeedbackNote && pathCleanSlash(ev.File) == file {
 					out = append(out, ev)
 				}
 			}
@@ -356,7 +359,7 @@ func (s *Server) handleFeedbackList(w http.ResponseWriter, r *http.Request) {
 		if file != "" {
 			filtered := out[:0]
 			for _, ev := range out {
-				if ev.File == file {
+				if pathCleanSlash(ev.File) == file {
 					filtered = append(filtered, ev)
 				}
 			}
