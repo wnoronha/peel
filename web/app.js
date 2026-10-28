@@ -1196,10 +1196,15 @@ function peelApp() {
         try {
           const m = JSON.parse(e.data);
           if (m.type === 'reload') {
-            this.loadFiles();
+            const now = Date.now();
+            if (!this._lastReload || now - this._lastReload > 1000) {
+              this._lastReload = now;
+              this.loadFiles();
+            }
             if (m.path === this.current) {
               const hasDraft = this.composer && this.composer.open;
-              if (!hasDraft) {
+              if (!hasDraft && (!this._lastOpen || now - this._lastOpen > 1000)) {
+                this._lastOpen = now;
                 this.openFile(this.current);
               }
               this.toast('Doc updated · ' + m.path, { kind: 'info', ttl: 3200 });
