@@ -2,6 +2,8 @@ package server
 
 import (
 	"bufio"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"net/http"
 	"os"
@@ -104,6 +106,14 @@ func (s *Server) appendFeedback(fb Feedback) error {
 	return f.Sync()
 }
 
+func newFeedbackID() string {
+	var b [8]byte
+	if _, err := rand.Read(b[:]); err != nil {
+		return time.Now().UTC().Format("20060102T150405.000000000")
+	}
+	return time.Now().UTC().Format("20060102T150405.000000000") + "-" + hex.EncodeToString(b[:])
+}
+
 func (s *Server) readFeedbackEvents() ([]Feedback, error) {
 	path := feedbackPath(s.root)
 	f, err := os.Open(path)
@@ -115,16 +125,23 @@ func (s *Server) readFeedbackEvents() ([]Feedback, error) {
 	}
 	defer f.Close()
 	var out []Feedback
-	sc := bufio.NewScanner(f)
-	sc.Buffer(make([]byte, 1024*1024), 1024*1024)
-	for sc.Scan() {
-		var fb Feedback
-		if err := json.Unmarshal(sc.Bytes(), &fb); err != nil {
-			continue
+	br := bufio.NewReader(f)
+	for {
+		line, err := br.ReadString('\n')
+		if line != "" {
+			// Skip overlong lines instead of failing the whole listing.
+			if len(line) <= 2<<20 {
+				var fb Feedback
+				if jerr := json.Unmarshal([]byte(line), &fb); jerr == nil {
+					out = append(out, fb)
+				}
+			}
 		}
-		out = append(out, fb)
+		if err != nil {
+			break
+		}
 	}
-	return out, sc.Err()
+	return out, nil
 }
 
 // foldOpenNotes returns note events that have no later ack or tombstone for their id.
@@ -240,7 +257,7 @@ func (s *Server) handleFeedbackAdd(w http.ResponseWriter, r *http.Request) {
 	s.feedbackMu.Lock()
 	defer s.feedbackMu.Unlock()
 
-	fb.ID = time.Now().UTC().Format("20060102T150405.000000000")
+	fb.ID = newFeedbackID()
 	fb.TS = time.Now().UTC().Format(time.RFC3339)
 	if err := s.appendFeedback(fb); err != nil {
 		http.Error(w, "write", 500)
@@ -284,7 +301,7 @@ func (s *Server) handleFeedbackDelete(w http.ResponseWriter, r *http.Request) {
 	for _, n := range foldOpenNotes(events) {
 		if n.ID == id {
 			fb := Feedback{Type: FeedbackTombstone, Ref: id}
-			fb.ID = time.Now().UTC().Format("20060102T150405.000000000")
+			fb.ID = newFeedbackID()
 			fb.TS = time.Now().UTC().Format(time.RFC3339)
 			if err := s.appendFeedback(fb); err != nil {
 				http.Error(w, "write", 500)
