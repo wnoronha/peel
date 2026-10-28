@@ -257,6 +257,19 @@ func (s *Server) handleFeedbackAdd(w http.ResponseWriter, r *http.Request) {
 	s.feedbackMu.Lock()
 	defer s.feedbackMu.Unlock()
 
+	if t == FeedbackAck || t == FeedbackTombstone {
+		events, err := s.readFeedbackEvents()
+		if err != nil {
+			http.Error(w, "read", http.StatusInternalServerError)
+			return
+		}
+		if !noteExists(events, strings.TrimSpace(fb.Ref)) {
+			http.Error(w, "unknown ref", http.StatusNotFound)
+			return
+		}
+		fb.Ref = strings.TrimSpace(fb.Ref)
+	}
+
 	fb.ID = newFeedbackID()
 	fb.TS = time.Now().UTC().Format(time.RFC3339)
 	if err := s.appendFeedback(fb); err != nil {
