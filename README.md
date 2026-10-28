@@ -79,6 +79,7 @@ make test
 
 ```sh
 ./peel --dir fixtures/google-search --port 18125
+# open http://127.0.0.1:18125/?file=overview.md
 ```
 
 ## Credits

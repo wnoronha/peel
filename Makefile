@@ -5,19 +5,20 @@ LDFLAGS := -X main.Version=$(VERSION) -X main.Commit=$(COMMIT) -X main.BuildDate
 
 .PHONY: all build test vet run clean
 
-all: test build
+all: vet test build
 
 build:
 	go build -ldflags "$(LDFLAGS)" -o peel .
 
 test:
-	go test -v ./...
+	go test ./...
 
 vet:
 	go vet ./...
 
 run: build
-	./peel
+	./peel $(ARGS)
 
 clean:
 	rm -f peel peel.exe
+	rm -rf dist/ peel-*
