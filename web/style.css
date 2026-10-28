@@ -45,9 +45,9 @@
   --color-background-strong:var(--color-on-dark);
   --color-background-strong-hover:#ffffff;
   --color-background-interactive:#292626;
-  --color-text:var(--color-ash);
-  --color-text-weak:var(--color-mute);
-  --color-text-weaker:#524f4f;
+  --color-text:#c9c6c6;
+  --color-text-weak:#a8a5a5;
+  --color-text-weaker:#8a8787;
   --color-text-strong:var(--color-on-dark);
   --color-border:var(--color-mute);
   --color-border-weak:rgba(253,252,252,.12);
@@ -55,11 +55,12 @@
   --color-hairline-strong:var(--color-mute);
 }
 *{box-sizing:border-box}
+[x-cloak]{display:none!important}
 ::selection{background:var(--color-background-interactive);color:var(--color-text-strong)}
 body{margin:0;background:var(--color-background);color:var(--color-text);font-family:var(--font-mono);font-size:16px;line-height:1.5;padding-bottom:5rem}
 body[data-page="peel"] a{color:var(--color-text-strong);text-decoration:underline;text-underline-offset:4px;text-decoration-thickness:1px}
 [data-component="container"]{max-width:none;margin:0;border-left:none;border-right:none}
-[data-component="top"]{padding:0 24px;height:var(--header-h);min-height:var(--header-h);position:sticky;top:0;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;row-gap:8px;column-gap:16px;background:var(--color-background);border-bottom:1px solid var(--color-border-weak);z-index:10}
+[data-component="top"]{padding:8px 24px;min-height:var(--header-h);position:sticky;top:0;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;row-gap:8px;column-gap:16px;background:var(--color-background);border-bottom:1px solid var(--color-border-weak);z-index:10}
 body[data-page="peel"] a[data-slot="logo"],
 body[data-page="peel"] a[data-slot="logo"]:hover{
   text-decoration:none;
@@ -164,7 +165,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
 #content a.external-link{color:var(--color-text-strong)}
 pre.diagram{background:transparent}
 .pele-diagram{border:1px solid var(--color-border-weak);border-radius:var(--radius-none);padding:16px;background:var(--color-background);--pele-bg:transparent;--pele-fg:var(--color-text-strong);--pele-muted:var(--color-text-weak);--pele-line:var(--color-text-weak);--pele-surface:var(--color-background-weak)}
-.slide{border:1px solid var(--color-border-weak);border-radius:var(--radius-none);padding:32px;margin:0 0 16px;background:var(--color-background);scroll-margin-top:120px;transition:opacity .2s;cursor:pointer;--slide-fold:calc(100dvh - var(--header-h) - 140px)}
+.slide{cursor:default;border:1px solid var(--color-border-weak);border-radius:var(--radius-none);padding:32px;margin:0 0 16px;background:var(--color-background);scroll-margin-top:120px;transition:opacity .2s;cursor:pointer;--slide-fold:calc(100dvh - var(--header-h) - 140px)}
 .slide.active{border-color:var(--color-text-strong);min-height:min(560px,var(--slide-fold))}
 .slide:not(.active){padding:0;margin:0 0 8px;opacity:1;background:transparent;min-height:0}
 .slide:not(.active):hover{border-color:var(--color-text-weak)}
@@ -215,15 +216,16 @@ pre.diagram{background:transparent}
 .toast-warn{border-left:3px solid var(--color-warning)}
 .toast-info{border-left:3px solid var(--color-text-weak)}
 @keyframes toast-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
-@media (prefers-reduced-motion:reduce){.toast{animation:none}}
+@media (prefers-reduced-motion:reduce){.toast{animation:none}.fb-flash{animation:none}.slide{transition:none}}
 .weak{color:var(--color-text-weak)}
 @media(max-width:60rem){
   [data-component="top"],[data-component="hero"],[data-component="footer"]{padding-left:1.5rem;padding-right:1.5rem}
   [data-component="nav-desktop"] ul{gap:16px}
+  [data-component="files"],[data-component="notes"]{width:min(88vw,340px)}
 }
 .link-btn{background:none;border:0;padding:0;font:inherit;color:var(--color-text-strong);font-weight:500;cursor:pointer}
 .link-btn:hover{text-decoration:underline;text-underline-offset:4px}
-#filetable-wrap.scroll{max-height:340px;overflow-y:auto}
+#filetable-wrap.scroll{max-height:340px;overflow-y:auto;scrollbar-width:thin}
 #filetable-wrap.scroll thead th{position:sticky;top:0;background:var(--color-background);z-index:1}
 table[data-component="rankings"] td.type{text-align:center;color:var(--color-text-weak)}
 [data-component="columns"] > *{min-width:0}
@@ -232,7 +234,7 @@ table[data-component="rankings"] td.type{text-align:center;color:var(--color-tex
 #content pre{max-width:100%}
 #content img{max-width:100%;height:auto}
 /* annotation marks — semantic ramp (in-product) */
-.fb-mark{border-radius:var(--radius-sm);box-shadow:inset 3px 0 0 var(--color-success);background:color-mix(in srgb, var(--color-success) 12%, transparent);padding-left:10px}
+.fb-mark{border-radius:var(--radius-sm);box-shadow:inset 3px 0 0 var(--color-success);background:color-mix(in srgb, var(--color-success) 12%, transparent)}
 .fb-mark.m1{box-shadow:inset 3px 0 0 var(--color-danger);background:color-mix(in srgb, var(--color-danger) 12%, transparent)}
 .fb-mark.m2{box-shadow:inset 3px 0 0 var(--color-warning);background:color-mix(in srgb, var(--color-warning) 12%, transparent)}
 /* floating annotation composer */
@@ -244,9 +246,11 @@ table[data-component="rankings"] td.type{text-align:center;color:var(--color-tex
 .cmp-bar{display:flex;justify-content:space-between;align-items:center;margin-top:8px;gap:8px}
 .cmp-bar .weak{font-size:12px}
 /* Compact Save in floating + panel comment boxes (not the global 36px CTA) */
-#composer .cta,#notes #saveNote,.cmp-bar .cta{
+#composer .cta,[data-component="notes"] #saveNote,.cmp-bar .cta{
   height:28px;padding:0 12px;font-size:13px;line-height:1;gap:4px;border-radius:var(--radius-sm)
 }
+/* show chip labels on touch */
+@media (hover:none){.chip .lbl{display:inline}}
 /* C4 mode — Linear-style level select, OpenCode flat chrome */
 #c4bar{display:flex;gap:12px;align-items:center;padding:8px 14px;margin:0 0 16px;background:var(--color-background-weak);border:1px solid var(--color-border-weak);border-radius:var(--radius-none);position:sticky;top:calc(var(--header-h) + 8px);z-index:5}
 .c4-level{position:relative;min-width:0;max-width:min(420px,60vw)}

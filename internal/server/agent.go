@@ -28,13 +28,39 @@ type agentStored struct {
 	until time.Time
 }
 
+func (s *Server) expireAgentIfDue() bool {
+	s.mu.Lock()
+	expired := s.agent.State == "working" && !s.agent.until.IsZero() && s.agent.until.Before(time.Now())
+	if expired {
+		s.agent = agentStored{State: "idle"}
+	}
+	s.mu.Unlock()
+	if expired {
+		s.emitAgent(AgentStatus{State: "idle"})
+	}
+	return expired
+}
+
+func (s *Server) startAgentJanitor(stop <-chan struct{}) {
+	tick := time.NewTicker(time.Minute)
+	defer tick.Stop()
+	for {
+		select {
+		case <-stop:
+			return
+		case <-tick.C:
+			s.expireAgentIfDue()
+		}
+	}
+}
+
 func (s *Server) getAgentStatus() AgentStatus {
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	if s.agent.State == "working" && !s.agent.until.IsZero() && s.agent.until.Before(time.Now()) {
 		s.agent = agentStored{State: "idle"}
 	}
 	out := AgentStatus{State: s.agent.State, Ref: s.agent.Ref, Note: s.agent.Note, Since: s.agent.Since}
+	s.mu.Unlock()
 	if out.State == "" {
 		out.State = "idle"
 	}
@@ -64,7 +90,7 @@ func (s *Server) clearAgentIfRef(ref string) {
 		return
 	}
 	s.mu.Lock()
-	clear := s.agent.State == "working" && (s.agent.Ref == "" || s.agent.Ref == ref)
+	clear := s.agent.State == "working" && s.agent.Ref != "" && s.agent.Ref == ref
 	if clear {
 		s.agent = agentStored{State: "idle"}
 	}
@@ -97,6 +123,10 @@ func (s *Server) handleAgentGet(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleAgentPost(w http.ResponseWriter, r *http.Request) {
+	if !guardMutating(w, r) {
+		return
+	}
+	r.Body = http.MaxBytesReader(w, r.Body, 256<<10)
 	var body struct {
 		State string `json:"state"`
 		Ref   string `json:"ref"`
@@ -111,11 +141,13 @@ func (s *Server) handleAgentPost(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "state must be working or idle", http.StatusBadRequest)
 		return
 	}
-	note := strings.TrimSpace(body.Note)
-	if len(note) > 200 {
-		note = note[:200]
+	ref := strings.TrimSpace(body.Ref)
+	if len(ref) > 128 {
+		http.Error(w, "ref too large", http.StatusBadRequest)
+		return
 	}
-	st := s.setAgentStatus(state, strings.TrimSpace(body.Ref), note)
+	note := truncateRunes(strings.TrimSpace(body.Note), 200)
+	st := s.setAgentStatus(state, ref, note)
 	s.emitAgent(st)
 	writeJSON(w, map[string]any{"ok": true, "state": st.State, "ref": st.Ref, "note": st.Note, "since": st.Since})
 }

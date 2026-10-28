@@ -2,9 +2,12 @@ package server
 
 import (
 	"bufio"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"time"
@@ -70,6 +73,24 @@ func feedbackType(fb Feedback) string {
 	return t
 }
 
+func truncateRunes(s string, n int) string {
+	if n <= 0 {
+		return ""
+	}
+	count := 0
+	for i := range s {
+		if count == n {
+			return s[:i]
+		}
+		count++
+	}
+	return s
+}
+
+func pathCleanSlash(p string) string {
+	return path.Clean(filepath.ToSlash(p))
+}
+
 func (s *Server) appendFeedback(fb Feedback) error {
 	if err := os.MkdirAll(filepath.Join(s.root, ".peel"), 0o755); err != nil {
 		return err
@@ -85,6 +106,14 @@ func (s *Server) appendFeedback(fb Feedback) error {
 	return f.Sync()
 }
 
+func newFeedbackID() string {
+	var b [8]byte
+	if _, err := rand.Read(b[:]); err != nil {
+		return time.Now().UTC().Format("20060102T150405.000000000")
+	}
+	return time.Now().UTC().Format("20060102T150405.000000000") + "-" + hex.EncodeToString(b[:])
+}
+
 func (s *Server) readFeedbackEvents() ([]Feedback, error) {
 	path := feedbackPath(s.root)
 	f, err := os.Open(path)
@@ -96,16 +125,23 @@ func (s *Server) readFeedbackEvents() ([]Feedback, error) {
 	}
 	defer f.Close()
 	var out []Feedback
-	sc := bufio.NewScanner(f)
-	sc.Buffer(make([]byte, 1024*1024), 1024*1024)
-	for sc.Scan() {
-		var fb Feedback
-		if err := json.Unmarshal(sc.Bytes(), &fb); err != nil {
-			continue
+	br := bufio.NewReader(f)
+	for {
+		line, err := br.ReadString('\n')
+		if line != "" {
+			// Skip overlong lines instead of failing the whole listing.
+			if len(line) <= 2<<20 {
+				var fb Feedback
+				if jerr := json.Unmarshal([]byte(line), &fb); jerr == nil {
+					out = append(out, fb)
+				}
+			}
 		}
-		out = append(out, fb)
+		if err != nil {
+			break
+		}
 	}
-	return out, sc.Err()
+	return out, nil
 }
 
 // foldOpenNotes returns note events that have no later ack or tombstone for their id.
@@ -145,6 +181,10 @@ func noteExists(events []Feedback, id string) bool {
 }
 
 func (s *Server) handleFeedbackAdd(w http.ResponseWriter, r *http.Request) {
+	if !guardMutating(w, r) {
+		return
+	}
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 	var fb Feedback
 	if err := json.NewDecoder(r.Body).Decode(&fb); err != nil {
 		http.Error(w, "bad json", http.StatusBadRequest)
@@ -154,8 +194,17 @@ func (s *Server) handleFeedbackAdd(w http.ResponseWriter, r *http.Request) {
 	t := feedbackType(fb)
 	switch t {
 	case FeedbackNote:
-		if strings.Contains(fb.File, "..") || fb.File == "" || filepath.IsAbs(fb.File) {
+		if _, ok := s.safeJoin(fb.File); !ok {
 			http.Error(w, "bad file", http.StatusBadRequest)
+			return
+		}
+		fb.File = pathCleanSlash(fb.File)
+		if len(fb.Note) > 20000 || len(fb.Quote) > 20000 {
+			http.Error(w, "note too large", http.StatusBadRequest)
+			return
+		}
+		if len(fb.File) > 512 || len(fb.HeadingID) > 512 || len(fb.LevelKind) > 64 {
+			http.Error(w, "field too large", http.StatusBadRequest)
 			return
 		}
 		if fb.Note == "" && fb.Quote == "" {
@@ -169,12 +218,9 @@ func (s *Server) handleFeedbackAdd(w http.ResponseWriter, r *http.Request) {
 		fb.Type = FeedbackNote
 		fb.Ref = ""
 		fb.C4ID = sanitizeC4ID(fb.C4ID)
-		fb.C4Label = strings.TrimSpace(fb.C4Label)
+		fb.C4Label = truncateRunes(strings.TrimSpace(fb.C4Label), 200)
 		fb.C4From = sanitizeC4ID(fb.C4From)
 		fb.C4To = sanitizeC4ID(fb.C4To)
-		if len(fb.C4Label) > 200 {
-			fb.C4Label = fb.C4Label[:200]
-		}
 		if fb.C4ID == "" {
 			fb.C4Label = ""
 			fb.C4From = ""
@@ -183,6 +229,10 @@ func (s *Server) handleFeedbackAdd(w http.ResponseWriter, r *http.Request) {
 	case FeedbackAck, FeedbackTombstone:
 		if strings.TrimSpace(fb.Ref) == "" {
 			http.Error(w, "missing ref", http.StatusBadRequest)
+			return
+		}
+		if len(fb.Ref) > 128 || len(fb.Note) > 20000 {
+			http.Error(w, "field too large", http.StatusBadRequest)
 			return
 		}
 		fb.Type = t
@@ -210,7 +260,20 @@ func (s *Server) handleFeedbackAdd(w http.ResponseWriter, r *http.Request) {
 	s.feedbackMu.Lock()
 	defer s.feedbackMu.Unlock()
 
-	fb.ID = time.Now().UTC().Format("20060102T150405.000000000")
+	if t == FeedbackAck || t == FeedbackTombstone {
+		events, err := s.readFeedbackEvents()
+		if err != nil {
+			http.Error(w, "read", http.StatusInternalServerError)
+			return
+		}
+		if !noteExists(events, strings.TrimSpace(fb.Ref)) {
+			http.Error(w, "unknown ref", http.StatusNotFound)
+			return
+		}
+		fb.Ref = strings.TrimSpace(fb.Ref)
+	}
+
+	fb.ID = newFeedbackID()
 	fb.TS = time.Now().UTC().Format(time.RFC3339)
 	if err := s.appendFeedback(fb); err != nil {
 		http.Error(w, "write", 500)
@@ -233,9 +296,16 @@ func (s *Server) emitFeedback(fb Feedback) {
 }
 
 func (s *Server) handleFeedbackDelete(w http.ResponseWriter, r *http.Request) {
-	id := r.URL.Query().Get("id")
+	if !guardMutating(w, r) {
+		return
+	}
+	id := strings.TrimSpace(r.URL.Query().Get("id"))
 	if id == "" {
 		http.Error(w, "missing id", http.StatusBadRequest)
+		return
+	}
+	if len(id) > 128 {
+		http.Error(w, "id too large", http.StatusBadRequest)
 		return
 	}
 
@@ -254,7 +324,7 @@ func (s *Server) handleFeedbackDelete(w http.ResponseWriter, r *http.Request) {
 	for _, n := range foldOpenNotes(events) {
 		if n.ID == id {
 			fb := Feedback{Type: FeedbackTombstone, Ref: id}
-			fb.ID = time.Now().UTC().Format("20060102T150405.000000000")
+			fb.ID = newFeedbackID()
 			fb.TS = time.Now().UTC().Format(time.RFC3339)
 			if err := s.appendFeedback(fb); err != nil {
 				http.Error(w, "write", 500)
@@ -271,6 +341,9 @@ func (s *Server) handleFeedbackDelete(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleFeedbackList(w http.ResponseWriter, r *http.Request) {
 	file := r.URL.Query().Get("file")
+	if file != "" {
+		file = pathCleanSlash(file)
+	}
 	all := r.URL.Query().Get("all") == "1" || r.URL.Query().Get("all") == "true"
 
 	events, err := s.readFeedbackEvents()
@@ -286,7 +359,7 @@ func (s *Server) handleFeedbackList(w http.ResponseWriter, r *http.Request) {
 			out = events
 		} else {
 			for _, ev := range events {
-				if feedbackType(ev) == FeedbackNote && ev.File == file {
+				if feedbackType(ev) == FeedbackNote && pathCleanSlash(ev.File) == file {
 					out = append(out, ev)
 				}
 			}
@@ -296,7 +369,7 @@ func (s *Server) handleFeedbackList(w http.ResponseWriter, r *http.Request) {
 		if file != "" {
 			filtered := out[:0]
 			for _, ev := range out {
-				if ev.File == file {
+				if pathCleanSlash(ev.File) == file {
 					filtered = append(filtered, ev)
 				}
 			}
@@ -328,7 +401,9 @@ func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
 		s.mu.Unlock()
 	}()
 	ctx := r.Context()
-	w.Write([]byte(": connected\n\n"))
+	if _, err := w.Write([]byte(": connected\n\n")); err != nil {
+		return
+	}
 	fl.Flush()
 	tick := time.NewTicker(20 * time.Second)
 	defer tick.Stop()
@@ -337,10 +412,14 @@ func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
 		case <-ctx.Done():
 			return
 		case msg := <-ch:
-			w.Write([]byte("data: " + msg + "\n\n"))
+			if _, err := w.Write([]byte("data: " + msg + "\n\n")); err != nil {
+				return
+			}
 			fl.Flush()
 		case <-tick.C:
-			w.Write([]byte(": hb\n\n"))
+			if _, err := w.Write([]byte(": hb\n\n")); err != nil {
+				return
+			}
 			fl.Flush()
 		}
 	}

@@ -7,6 +7,15 @@
 <link rel="stylesheet" href="/style.css">
 <script src="/vendor/pele.global.js"></script>
 <script defer src="/vendor/alpine.min.js"></script>
+<script src="/js/data.js"></script>
+<script src="/js/utils.js"></script>
+<script src="/js/state.js"></script>
+<script src="/js/goto.js"></script>
+<script src="/js/doc.js"></script>
+<script src="/js/deck.js"></script>
+<script src="/js/c4.js"></script>
+<script src="/js/feedback.js"></script>
+<script src="/js/sse.js"></script>
 </head>
 <body data-page="peel">
 <!-- Lucide icons ISC — web/vendor/lucide/NOTICE -->
@@ -82,22 +91,22 @@
     <aside data-component="files" x-show="leftOpen">
       <div class="panel-body">
       <div data-component="section-head">
-        <button class="link-btn" @click="showAll=!showAll" :title="showAll ? 'Show recent 5' : 'Show all files'" x-text="showAll ? `All files (${visibleFiles.length}) ▴` : `Recent files (${visibleFiles.length}) ▾`">Recent files ▾</button>
+        <button class="link-btn" @click="showAll=!showAll" :title="showAll ? 'Show recent 5' : 'Show all files'" x-text="showAll ? `All files (${filteredFiles.length}) ▴` : `Recent files (${filteredFiles.length}) ▾`">Recent files ▾</button>
         <span><button class="mini-btn" @click="toggleLeft()" title="Close files panel ( [ )" aria-label="Close files panel">×</button></span>
       </div>
-      <div data-component="tabs" role="tablist" style="margin-bottom:12px">
-        <button :class="{active: tab==='all'}" @click="setTab('all')">All</button><button :class="{active: tab==='docs'}" @click="setTab('docs')">Docs</button><button :class="{active: tab==='decks'}" @click="setTab('decks')">Decks</button><button :class="{active: tab==='c4'}" @click="setTab('c4')">C4</button>
+      <div data-component="tabs" role="tablist" aria-label="File type filter" style="margin-bottom:12px">
+        <button role="tab" :aria-selected="tab==='all'" :class="{active: tab==='all'}" @click="setTab('all')">All</button><button role="tab" :aria-selected="tab==='docs'" :class="{active: tab==='docs'}" @click="setTab('docs')">Docs</button><button role="tab" :aria-selected="tab==='decks'" :class="{active: tab==='decks'}" @click="setTab('decks')">Decks</button><button role="tab" :aria-selected="tab==='c4'" :class="{active: tab==='c4'}" @click="setTab('c4')">C4</button>
       </div>
-      <input id="filter" x-ref="filter" x-model="query" placeholder="filter list · Ctrl-P jumps" autocomplete="off">
+      <input id="filter" x-ref="filter" x-model="query" placeholder="filter list · Ctrl-P jumps" autocomplete="off" aria-label="Filter files">
       <div id="filetable-wrap" :class="{scroll: showAll && visibleFiles.length > 5}">
       <table data-component="rankings">
         <thead><tr>
-          <th @click="sort('path')">File <span x-show="sortKey==='path'" x-text="sortDir===1?'▲':'▼'"></span></th><th class="num" @click="sort('links')">Links <span x-show="sortKey==='links'" x-text="sortDir===1?'▲':'▼'"></span></th>
+          <th @click="sort('path')" @keydown.enter.prevent="sort('path')" tabindex="0" role="columnheader" :aria-sort="sortKey==='path' ? (sortDir===1 ? 'ascending' : 'descending') : 'none'">File <span x-show="sortKey==='path'" x-text="sortDir===1?'▲':'▼'"></span></th><th class="num" @click="sort('links')" @keydown.enter.prevent="sort('links')" tabindex="0" role="columnheader" :aria-sort="sortKey==='links' ? (sortDir===1 ? 'ascending' : 'descending') : 'none'">Links <span x-show="sortKey==='links'" x-text="sortDir===1?'▲':'▼'"></span></th>
         </tr></thead>
         <tbody id="filelist">
           <template x-for="(f, i) in visibleFiles" :key="f.path">
-            <tr class="row" :class="{active: current===f.path}" @click="navFile(f.path)">
-              <td><div class="file-row"><span class="type" x-text="typeIcon(f.type)" :title="f.type"></span><a href="#" @click.prevent="navFile(f.path)" :title="f.path" x-text="f.path"></a></div><div class="weak file-title" x-text="f.title"></div></td>
+            <tr class="row" :class="{active: current===f.path}" @click="navFile(f.path)" @keydown.enter.prevent="navFile(f.path)" tabindex="0" role="button" :aria-label="'Open ' + f.path">
+              <td><div class="file-row"><span class="type" x-text="typeIcon(f.type)" :title="f.type"></span><a href="#" @click.prevent.stop="navFile(f.path)" :title="f.path" x-text="f.path"></a></div><div class="weak file-title" x-text="f.title"></div></td>
               <td class="num" x-text="`${f.backlinks||0}← ${f.links||0}→`"></td>
             </tr>
           </template>
@@ -132,7 +141,7 @@
       <div id="c4bar" x-show="doc?.type === 'c4'" @click.outside="if (metaOpen==='c4level') metaOpen=null">
         <div class="c4-level">
           <button type="button" class="c4-level-btn" @click="toggleMeta('c4level')" :aria-expanded="metaOpen==='c4level'" aria-haspopup="listbox" :aria-label="c4LevelKind ? (c4LevelKind + ' — ' + c4LevelName) : 'Choose C4 diagram level'" :title="c4LevelKind ? (c4LevelKind + ' · ' + c4LevelPos) : c4LevelPos">
-            <svg class="c4-level-ico" aria-hidden="true" x-show="c4KindIcon()"><use :href="'#lucide-' + c4KindIcon()"></use></svg>
+            <svg class="c4-level-ico" aria-hidden="true" x-show="c4KindIcon()"><use :href="c4KindIcon() ? '#lucide-' + c4KindIcon() : ''"></use></svg>
             <span class="c4-level-value" x-text="c4LevelName">—</span>
             <span class="c4-level-chev" aria-hidden="true">▾</span>
           </button>
@@ -199,7 +208,7 @@
             </button>
           </template>
         </div>
-        <textarea id="noteText" x-ref="note" x-model="noteText" placeholder="Select text in the doc, then write a note…"></textarea>
+        <textarea id="noteText" x-ref="note" x-model="noteText" placeholder="Select text in the doc, then write a note…" aria-label="Feedback note"></textarea>
         <button id="saveNote" class="cta secondary" :disabled="!selQuote || !noteText.trim()" @click="saveNote()">Save</button>
       </div>
       <p class="weak" x-show="!visibleFeedback.length && fbStatus==='open'" style="font-size:12px;margin:12px 0 0">No open notes — select text to start.</p>
@@ -208,7 +217,7 @@
       <p class="weak" x-show="!visibleFeedback.length && fbStatus==='all'" style="font-size:12px;margin:12px 0 0">No feedback yet.</p>
       <div id="feedback">
         <template x-for="f in [...visibleFeedback].reverse()" :key="f.id">
-          <div class="fb" :class="'fb-' + f.status" @click="jumpToFeedback(f)" :title="'Jump to quoted text · L' + f.startLine">
+          <div class="fb" :class="'fb-' + f.status" @click="jumpToFeedback(f)" @keydown.enter.prevent="jumpToFeedback(f)" tabindex="0" role="button" :aria-label="'Jump to note in ' + f.file" :title="'Jump to quoted text · L' + f.startLine">
             <div class="fb-head">
               <span class="meta">
                 <span class="fb-status" x-text="f.status"></span>
@@ -237,14 +246,14 @@
 
   <div id="toasts" aria-live="polite" aria-relevant="additions">
     <template x-for="t in toasts" :key="t.id">
-      <button type="button" class="toast" :class="'toast-' + t.kind" @click="onToastClick(t)" :title="t.action === 'feedback' ? 'Open Feedback' : ''">
+      <div class="toast" :class="'toast-' + t.kind" @click="onToastClick(t)" role="button" tabindex="0" @keydown.enter.prevent="onToastClick(t)" :title="t.action === 'feedback' ? 'Open Feedback' : ''">
         <span class="toast-msg" x-text="t.message"></span>
-        <span class="toast-x" @click.stop="dismissToast(t.id)" aria-label="Dismiss">×</span>
-      </button>
+        <button type="button" class="toast-x" @click.stop="dismissToast(t.id)" aria-label="Dismiss">×</button>
+      </div>
     </template>
   </div>
 
-  <div id="composer" x-show="composer.open" :style="`left:${composer.x}px;top:${composer.y}px`" @keydown.escape.window="closeComposer()">
+  <div id="composer" x-show="composer.open" :style="`left:${composer.x}px;top:${composer.y}px`" @keydown.escape.window="closeComposer()" role="dialog" aria-label="Feedback composer">
     <button class="cmp-x" @click="closeComposer()" aria-label="Close">×</button>
     <div class="cmp-quote" x-text="composerQuote"></div>
     <div class="chips">
@@ -255,13 +264,13 @@
         </button>
       </template>
     </div>
-    <textarea x-model="composerNote" @keydown.cmd.enter.prevent="saveComposer()" @keydown.ctrl.enter.prevent="saveComposer()" placeholder="Why did you change this?"></textarea>
+    <textarea x-model="composerNote" @keydown.cmd.enter.prevent="saveComposer()" @keydown.ctrl.enter.prevent="saveComposer()" placeholder="Why did you change this?" aria-label="Composer note"></textarea>
     <div class="cmp-bar"><span class="weak">⌘↵ to save</span><button class="cta" @click="saveComposer()">Save</button></div>
   </div>
 
   <div id="goto" x-show="goto.open" x-cloak @click.self="closeGoto()" @keydown.escape.window="goto.open && closeGoto()">
     <div class="goto-panel" role="dialog" aria-label="Jump to file" @click.stop>
-      <input id="gotoInput" x-ref="gotoInput" type="text" x-model="goto.query"
+      <input id="gotoInput" x-ref="gotoInput" type="text" x-model="goto.query" aria-label="Jump to file"
         @input="onGotoInput()"
         @keydown.down.prevent="gotoMove(1)"
         @keydown.up.prevent="gotoMove(-1)"
@@ -271,12 +280,12 @@
       <ul id="gotoList" class="goto-list" role="listbox">
         <template x-for="(hit, i) in gotoHits" :key="hit.path">
           <li role="option" :class="{on: i === goto.idx}" :aria-selected="i === goto.idx"
-              @click="gotoOpen(hit.path)" @mousemove="goto.idx = i">
-            <span class="goto-score" x-text="hit.score"></span>
+              @click="gotoOpen(hit.path)" @mouseenter="goto.idx = i">
+            <span class="goto-score" x-text="hit.score === '·' ? '' : Math.round(hit.score)"></span>
             <span class="goto-type" x-text="typeIcon(hit.type)" :title="hit.type"></span>
             <span class="goto-body">
               <span class="goto-name" x-text="hit.name"></span>
-              <span class="goto-path weak" x-show="hit.title" x-text="hit.title"></span>
+              <span class="goto-path weak" x-text="[hit.dir, hit.title].filter(Boolean).join(' · ')"></span>
             </span>
           </li>
         </template>

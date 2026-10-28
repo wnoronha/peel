@@ -3,6 +3,7 @@ package server
 import (
 	"bytes"
 	"fmt"
+	htmlstd "html"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -13,18 +14,16 @@ import (
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/extension"
 	"github.com/yuin/goldmark/parser"
-	"github.com/yuin/goldmark/renderer/html"
 )
 
 var md = goldmark.New(
 	goldmark.WithExtensions(extension.GFM, extension.Footnote, extension.Typographer),
 	goldmark.WithParserOptions(parser.WithAutoHeadingID()),
-	goldmark.WithRendererOptions(html.WithUnsafe()),
 )
 
 var (
-	headingRe  = regexp.MustCompile(`^(#{1,6})\s+(.+)$`)
-	wikiSafeRe = regexp.MustCompile("(?s)(```.*?```|`[^`\\n]+`)|" + `\[\[([^\]|#]+)(?:#([^\]|]+))?(?:\|([^\]]+))?\]\]`)
+	headingRe = regexp.MustCompile(`^(#{1,6})\s+(.+)$`)
+	wikiRe    = regexp.MustCompile(`\[\[([^\]|#]+)(?:#([^\]|]+))?(?:\|([^\]]+))?\]\]`)
 )
 
 type OutlineItem struct {
@@ -75,37 +74,39 @@ func slugify(t string) string {
 }
 
 func (s *Server) expandWikilinks(body string, targetMap map[string]string) string {
-	return wikiSafeRe.ReplaceAllStringFunc(body, func(m string) string {
-		sub := wikiSafeRe.FindStringSubmatch(m)
-		if sub[1] != "" {
-			return sub[1]
-		}
-		target := strings.TrimSpace(sub[2])
-		anchor := strings.TrimSpace(sub[3])
-		label := strings.TrimSpace(sub[4])
-		if label == "" {
-			if anchor != "" {
-				label = target + " #" + anchor
-			} else {
-				label = target
+	if len(body) > 1<<20 {
+		return body
+	}
+	return mapOutsideCode(body, func(seg string) string {
+		return wikiRe.ReplaceAllStringFunc(seg, func(m string) string {
+			sub := wikiRe.FindStringSubmatch(m)
+			target := strings.TrimSpace(sub[1])
+			anchor := strings.TrimSpace(sub[2])
+			label := strings.TrimSpace(sub[3])
+			if label == "" {
+				if anchor != "" {
+					label = target + " #" + anchor
+				} else {
+					label = target
+				}
 			}
-		}
-		dest := targetMap[strings.ToLower(target)]
-		if dest == "" {
-			return fmt.Sprintf(`<span class="wikilink-missing">%s</span>`, label)
-		}
-		href := fmt.Sprintf("?file=%s", dest)
-		if anchor != "" {
-			href += "#" + slugify(anchor)
-		}
-		return fmt.Sprintf(`<a class="wikilink" data-wikilink="%s" href="%s">%s</a>`, dest, href, label)
+			dest := targetMap[strings.ToLower(target)]
+			if dest == "" {
+				return fmt.Sprintf(`<span class="wikilink-missing">%s</span>`, htmlstd.EscapeString(label))
+			}
+			href := fmt.Sprintf("?file=%s", dest)
+			if anchor != "" {
+				href += "#" + slugify(anchor)
+			}
+			return fmt.Sprintf(`<a class="wikilink" data-wikilink="%s" href="%s">%s</a>`, htmlstd.EscapeString(dest), htmlstd.EscapeString(href), htmlstd.EscapeString(label))
+		})
 	})
 }
 
 func renderMarkdown(src string) string {
 	var buf bytes.Buffer
 	if err := md.Convert([]byte(src), &buf); err != nil {
-		return "<pre>" + err.Error() + "</pre>"
+		return "<pre>" + htmlstd.EscapeString(err.Error()) + "</pre>"
 	}
 	return buf.String()
 }
@@ -155,7 +156,7 @@ func (s *Server) handleDoc(w http.ResponseWriter, r *http.Request) {
 	if rel == "" {
 		rel = r.URL.Query().Get("file")
 	}
-	if rel == "" || strings.Contains(rel, "..") || filepath.IsAbs(rel) {
+	if rel == "" {
 		http.Error(w, "bad path", http.StatusBadRequest)
 		return
 	}
@@ -165,7 +166,25 @@ func (s *Server) handleDoc(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	abs := filepath.Join(s.root, filepath.FromSlash(rel))
+	abs, ok := s.safeJoin(rel)
+	if !ok {
+		http.Error(w, "bad path", http.StatusBadRequest)
+		return
+	}
+	st, err := os.Stat(abs)
+	if err != nil || st.IsDir() || st.Size() > 5<<20 {
+		if err == nil && st != nil && !st.IsDir() && st.Size() > 5<<20 {
+			http.Error(w, "file too large", http.StatusBadRequest)
+		} else {
+			http.Error(w, "not found", http.StatusNotFound)
+		}
+		return
+	}
+	etag := fmt.Sprintf(`"%x-%x"`, st.ModTime().UnixNano(), st.Size())
+	if r.Header.Get("If-None-Match") == etag {
+		w.WriteHeader(http.StatusNotModified)
+		return
+	}
 	rawBytes, err := os.ReadFile(abs)
 	if err != nil {
 		http.Error(w, "not found", http.StatusNotFound)
@@ -173,6 +192,8 @@ func (s *Server) handleDoc(w http.ResponseWriter, r *http.Request) {
 	}
 	raw := string(rawBytes)
 
+	raws := s.scanRawFiles()
+	targetLookup, known := lookupFromRaws(raws)
 	resp := DocResponse{
 		Path:      rel,
 		Raw:       raw,
@@ -180,7 +201,7 @@ func (s *Server) handleDoc(w http.ResponseWriter, r *http.Request) {
 		Slides:    []string{},
 		Levels:    []C4Level{},
 		Outline:   []OutlineItem{},
-		Backlinks: s.backlinksFor(rel),
+		Backlinks: backlinksFromRaws(raws, targetLookup, rel),
 	}
 
 	if ext == ".c4" {
@@ -204,6 +225,7 @@ func (s *Server) handleDoc(w http.ResponseWriter, r *http.Request) {
 			resp.Levels = append(resp.Levels, C4Level{Name: name, Kind: c4Kind(src), Source: src})
 			resp.Outline = append(resp.Outline, OutlineItem{Level: 1, Text: name, Line: i + 1, ID: slugify(name)})
 		}
+		w.Header().Set("ETag", etag)
 		writeJSON(w, resp)
 		return
 	}
@@ -222,10 +244,8 @@ func (s *Server) handleDoc(w http.ResponseWriter, r *http.Request) {
 		resp.Outline = append(resp.Outline, OutlineItem{Level: len(m[1]), Text: text, Line: i + 1, ID: slugify(text)})
 	}
 
-	targetMap := s.targetMap()
-	known := s.knownDocSet()
 	render := func(src string) string {
-		return rewriteDocLinks(tagDiagrams(renderMarkdown(s.expandWikilinks(src, targetMap))), rel, known)
+		return rewriteDocLinks(tagDiagrams(renderMarkdown(s.expandWikilinks(src, targetLookup))), rel, known)
 	}
 	if fm.Marp {
 		resp.Type = "deck"
@@ -239,12 +259,32 @@ func (s *Server) handleDoc(w http.ResponseWriter, r *http.Request) {
 		resp.HTML = render(body)
 	}
 
+	w.Header().Set("ETag", etag)
 	writeJSON(w, resp)
 }
 
-func (s *Server) backlinksFor(rel string) []string {
-	targetLookup := s.targetMap()
-	raws := s.scanRawFiles()
+func lookupFromRaws(raws []rawFile) (map[string]string, map[string]bool) {
+	lookup := make(map[string]string, len(raws)*3)
+	known := make(map[string]bool, len(raws))
+	for _, r := range raws {
+		base := strings.ToLower(strings.TrimSuffix(filepath.Base(r.rel), filepath.Ext(r.rel)))
+		noExt := strings.ToLower(strings.TrimSuffix(r.rel, filepath.Ext(r.rel)))
+		full := strings.ToLower(r.rel)
+		if _, ok := lookup[base]; !ok {
+			lookup[base] = r.rel
+		}
+		if _, ok := lookup[noExt]; !ok {
+			lookup[noExt] = r.rel
+		}
+		if _, ok := lookup[full]; !ok {
+			lookup[full] = r.rel
+		}
+		known[r.rel] = true
+	}
+	return lookup, known
+}
+
+func backlinksFromRaws(raws []rawFile, lookup map[string]string, rel string) []string {
 	seen := make(map[string]bool)
 	var out []string
 
@@ -260,16 +300,16 @@ func (s *Server) backlinksFor(rel string) []string {
 			continue
 		}
 		linked := false
-		matches := wikiTargetRe.FindAllStringSubmatch(o.b, -1)
-		for _, m := range matches {
-			if m[1] != "" {
-				continue
-			}
-			targetKey := strings.ToLower(strings.TrimSpace(m[2]))
-			if dest, ok := targetLookup[targetKey]; ok && dest == rel {
-				linked = true
-				break
-			}
+		if len(o.b) <= 1<<20 {
+			mapOutsideCode(o.b, func(seg string) string {
+				for _, m := range wikiTargetRe.FindAllStringSubmatch(seg, -1) {
+					targetKey := strings.ToLower(strings.TrimSpace(m[1]))
+					if dest, ok := lookup[targetKey]; ok && dest == rel {
+						linked = true
+					}
+				}
+				return seg
+			})
 		}
 		if !linked {
 			for _, dest := range collectMarkdownDocLinks(o.rel, o.b) {
@@ -288,4 +328,10 @@ func (s *Server) backlinksFor(rel string) []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+func (s *Server) backlinksFor(rel string) []string {
+	raws := s.scanRawFiles()
+	lookup, _ := lookupFromRaws(raws)
+	return backlinksFromRaws(raws, lookup, rel)
 }

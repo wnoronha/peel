@@ -1,6 +1,7 @@
 package server
 
 import (
+	"fmt"
 	"io/fs"
 	"net/http"
 	"os"
@@ -32,7 +33,7 @@ type frontMatter struct {
 }
 
 var (
-	wikiTargetRe = regexp.MustCompile("(?s)(```.*?```|`[^`\\n]+`)|" + `\[\[([^\]|#]+)(?:#[^\]|]+)?(?:\|[^\]]+)?\]\]`)
+	wikiTargetRe = regexp.MustCompile(`\[\[([^\]|#]+)(?:#[^\]|]+)?(?:\|[^\]]+)?\]\]`)
 )
 
 func parseFrontMatter(raw string) (frontMatter, string) {
@@ -46,6 +47,7 @@ func parseFrontMatter(raw string) (frontMatter, string) {
 		return fm, raw
 	}
 	fmText := rest[:idx]
+	// Malformed frontmatter is treated as no frontmatter.
 	_ = yaml.Unmarshal([]byte(fmText), &fm)
 	body := rest[idx+4:]
 	body = strings.TrimLeft(body, "\r\n")
@@ -91,7 +93,8 @@ func c4Kind(src string) string {
 }
 
 // splitC4Levels: .c4 sources hold one C4 diagram per level, separated by
-// a line containing exactly ---. Returns section sources.
+// a line containing exactly ---. Fenced blocks may contain literal ---.
+// Returns section sources.
 func splitC4Levels(body string) []string {
 	var out []string
 	var cur []string
@@ -102,8 +105,15 @@ func splitC4Levels(body string) []string {
 		}
 		cur = nil
 	}
+	inFence := false
 	for _, ln := range strings.Split(body, "\n") {
-		if strings.TrimSpace(strings.TrimRight(ln, "\r")) == "---" {
+		trim := strings.TrimSpace(strings.TrimRight(ln, "\r"))
+		if strings.HasPrefix(trim, "```") || strings.HasPrefix(trim, "~~~") {
+			inFence = !inFence
+			cur = append(cur, ln)
+			continue
+		}
+		if !inFence && trim == "---" {
 			flush()
 			continue
 		}
@@ -156,6 +166,9 @@ func (s *Server) scanRawFiles() []rawFile {
 		if ext != ".md" && ext != ".c4" {
 			return nil
 		}
+		if info, err := os.Lstat(p); err == nil && info.Mode()&os.ModeSymlink != 0 {
+			return nil
+		}
 		rel, _ := filepath.Rel(s.root, p)
 		rel = filepath.ToSlash(rel)
 		info, _ := d.Info()
@@ -176,47 +189,9 @@ func (s *Server) scanRawFiles() []rawFile {
 	return raws
 }
 
-// targetMap returns lookup keys mapped to canonical relative paths.
-func (s *Server) targetMap() map[string]string {
-	lookup := make(map[string]string)
-	_ = filepath.WalkDir(s.root, func(p string, d fs.DirEntry, err error) error {
-		if err != nil || d.IsDir() {
-			if d != nil && d.IsDir() {
-				base := filepath.Base(p)
-				if strings.HasPrefix(base, ".") || base == "node_modules" {
-					return filepath.SkipDir
-				}
-			}
-			return nil
-		}
-		ext := strings.ToLower(filepath.Ext(p))
-		if ext != ".md" && ext != ".c4" {
-			return nil
-		}
-		rel, _ := filepath.Rel(s.root, p)
-		rel = filepath.ToSlash(rel)
-		base := strings.ToLower(strings.TrimSuffix(filepath.Base(rel), filepath.Ext(rel)))
-		noExt := strings.ToLower(strings.TrimSuffix(rel, filepath.Ext(rel)))
-		full := strings.ToLower(rel)
-		lookup[base] = rel
-		lookup[noExt] = rel
-		lookup[full] = rel
-		return nil
-	})
-	return lookup
-}
-
 func (s *Server) listFiles() ([]FileEntry, error) {
 	raws := s.scanRawFiles()
-	targetLookup := make(map[string]string)
-	for _, r := range raws {
-		base := strings.ToLower(strings.TrimSuffix(filepath.Base(r.rel), filepath.Ext(r.rel)))
-		noExt := strings.ToLower(strings.TrimSuffix(r.rel, filepath.Ext(r.rel)))
-		full := strings.ToLower(r.rel)
-		targetLookup[base] = r.rel
-		targetLookup[noExt] = r.rel
-		targetLookup[full] = r.rel
-	}
+	targetLookup, _ := lookupFromRaws(raws)
 
 	backlinks := make(map[string]map[string]bool)
 	for _, r := range raws {
@@ -226,16 +201,18 @@ func (s *Server) listFiles() ([]FileEntry, error) {
 
 	for _, r := range raws {
 		count := 0
-		matches := wikiTargetRe.FindAllStringSubmatch(r.b, -1)
-		for _, m := range matches {
-			if m[1] != "" {
-				continue
-			}
-			count++
-			targetKey := strings.ToLower(strings.TrimSpace(m[2]))
-			if dest, ok := targetLookup[targetKey]; ok && dest != r.rel {
-				backlinks[dest][r.rel] = true
-			}
+		wikiBody := r.b
+		if len(wikiBody) <= 1<<20 {
+			mapOutsideCode(wikiBody, func(seg string) string {
+				for _, m := range wikiTargetRe.FindAllStringSubmatch(seg, -1) {
+					count++
+					targetKey := strings.ToLower(strings.TrimSpace(m[1]))
+					if dest, ok := targetLookup[targetKey]; ok && dest != r.rel {
+						backlinks[dest][r.rel] = true
+					}
+				}
+				return seg
+			})
 		}
 		for _, dest := range collectMarkdownDocLinks(r.rel, r.b) {
 			count++
@@ -260,6 +237,10 @@ func (s *Server) listFiles() ([]FileEntry, error) {
 		if isC4 {
 			title = c4Title(r.b, r.rel)
 		}
+		words := r.bd
+		if isC4 {
+			words = r.b
+		}
 		out = append(out, FileEntry{
 			Path:      r.rel,
 			Name:      r.rel,
@@ -269,7 +250,7 @@ func (s *Server) listFiles() ([]FileEntry, error) {
 			Title:     title,
 			Size:      r.sz,
 			ModTime:   r.mt,
-			Words:     len(strings.Fields(r.b)),
+			Words:     len(strings.Fields(words)),
 			Links:     linkCount[r.rel],
 			Backlinks: len(backlinks[r.rel]),
 		})
@@ -279,9 +260,28 @@ func (s *Server) listFiles() ([]FileEntry, error) {
 }
 
 func (s *Server) handleFiles(w http.ResponseWriter, r *http.Request) {
-	files, _ := s.listFiles()
+	files, err := s.listFiles()
+	if err != nil {
+		http.Error(w, "read", http.StatusInternalServerError)
+		return
+	}
 	if files == nil {
 		files = []FileEntry{}
+	}
+	var sum int64
+	var latest string
+	for _, f := range files {
+		sum += f.Size + int64(f.Words)
+		if f.ModTime > latest {
+			latest = f.ModTime
+		}
+	}
+	etag := `"` + fmt.Sprintf("%x-%d-%s", len(files), sum, latest) + `"`
+	w.Header().Set("ETag", etag)
+	w.Header().Set("Cache-Control", "no-cache")
+	if r.Header.Get("If-None-Match") == etag {
+		w.WriteHeader(http.StatusNotModified)
+		return
 	}
 	writeJSON(w, map[string]any{"root": filepath.Base(s.root), "files": files})
 }

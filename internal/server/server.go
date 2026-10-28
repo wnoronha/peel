@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"io/fs"
 	"net/http"
+	"net/url"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -33,6 +35,7 @@ func New(root string) *Server {
 }
 
 var (
+	webFSMu       sync.RWMutex
 	webFS         fs.FS
 	staticHandler http.Handler
 )
@@ -53,36 +56,136 @@ var mediaExtensions = map[string]bool{
 
 // SetWebFS wires the embedded web/ filesystem.
 func SetWebFS(f fs.FS) {
+	webFSMu.Lock()
+	defer webFSMu.Unlock()
 	webFS = f
 	staticHandler = http.FileServer(http.FS(f))
 }
 
+// SetWebDir serves the UI from disk (dev iteration without rebuild).
+// Falls back to embedded assets when dir is empty (handled by caller).
+func SetWebDir(dir string) error {
+	abs, err := filepath.Abs(dir)
+	if err != nil {
+		return err
+	}
+	st, err := os.Stat(abs)
+	if err != nil || !st.IsDir() {
+		return fmt.Errorf("not a directory: %s", dir)
+	}
+	webFSMu.Lock()
+	defer webFSMu.Unlock()
+	webFS = os.DirFS(abs)
+	staticHandler = http.FileServer(http.Dir(abs))
+	return nil
+}
+
 // SetStatic keeps compatibility for custom handlers if needed.
 func SetStatic(h http.Handler) {
+	webFSMu.Lock()
+	defer webFSMu.Unlock()
 	staticHandler = h
 }
 
-func (s *Server) serveRootAsset(w http.ResponseWriter, r *http.Request) bool {
-	clean := filepath.Clean(filepath.FromSlash(strings.TrimPrefix(r.URL.Path, "/")))
-	if strings.HasPrefix(clean, ".") || strings.Contains(clean, "..") {
-		return false
+func getStatic() (fs.FS, http.Handler) {
+	webFSMu.RLock()
+	defer webFSMu.RUnlock()
+	return webFS, staticHandler
+}
+
+// safeJoin resolves a root-relative rel path and rejects traversal and symlinks.
+func (s *Server) safeJoin(rel string) (string, bool) {
+	if rel == "" || filepath.IsAbs(rel) || filepath.IsAbs(filepath.FromSlash(rel)) {
+		return "", false
 	}
-	parts := strings.Split(filepath.ToSlash(clean), "/")
+	cleaned := path.Clean(filepath.ToSlash(rel))
+	if cleaned == "." || cleaned == ".." || strings.HasPrefix(cleaned, "../") || strings.HasPrefix(cleaned, "/") {
+		return "", false
+	}
+	for _, part := range strings.Split(cleaned, "/") {
+		if part == ".." || part == "." || part == "" {
+			return "", false
+		}
+	}
+	rootAbs, err := filepath.Abs(s.root)
+	if err != nil {
+		return "", false
+	}
+	abs := filepath.Join(rootAbs, filepath.FromSlash(cleaned))
+	relCheck, err := filepath.Rel(rootAbs, abs)
+	if err != nil || relCheck == ".." || strings.HasPrefix(relCheck, ".."+string(filepath.Separator)) {
+		return "", false
+	}
+	if fi, err := os.Lstat(abs); err == nil {
+		if fi.Mode()&os.ModeSymlink != 0 {
+			return "", false
+		}
+		if resolved, err := filepath.EvalSymlinks(abs); err == nil {
+			resAbs, err := filepath.Abs(resolved)
+			if err != nil {
+				return "", false
+			}
+			if rc, err := filepath.Rel(rootAbs, resAbs); err != nil || rc == ".." || strings.HasPrefix(rc, ".."+string(filepath.Separator)) {
+				return "", false
+			}
+			return resAbs, true
+		}
+		return "", false
+	}
+	// File does not exist: verify parent dir resolves inside root.
+	parent := filepath.Dir(abs)
+	if presolved, err := filepath.EvalSymlinks(parent); err == nil {
+		if rp, err := filepath.Rel(rootAbs, presolved); err != nil || rp == ".." || strings.HasPrefix(rp, ".."+string(filepath.Separator)) {
+			return "", false
+		}
+	}
+	return abs, true
+}
+
+func (s *Server) serveRootAsset(w http.ResponseWriter, r *http.Request) bool {
+	rel := strings.TrimPrefix(r.URL.Path, "/")
+	parts := strings.Split(filepath.ToSlash(rel), "/")
 	for _, part := range parts {
 		if strings.HasPrefix(part, ".") || part == "node_modules" {
 			return false
 		}
 	}
-	ext := strings.ToLower(filepath.Ext(clean))
+	// safeJoin rejects traversal, absolute paths, and symlinks.
+	cleaned := path.Clean(filepath.ToSlash(rel))
+	ext := strings.ToLower(filepath.Ext(cleaned))
 	if !mediaExtensions[ext] {
 		return false
 	}
-	abs := filepath.Join(s.root, clean)
+	abs, ok := s.safeJoin(cleaned)
+	if !ok {
+		return false
+	}
 	st, err := os.Stat(abs)
 	if err != nil || st.IsDir() {
 		return false
 	}
+	w.Header().Set("Cache-Control", "public, max-age=3600")
 	http.ServeFile(w, r, abs)
+	return true
+}
+
+func checkSameOrigin(r *http.Request) bool {
+	origin := r.Header.Get("Origin")
+	if origin == "" {
+		return true
+	}
+	u, err := url.Parse(origin)
+	if err != nil || u.Host == "" {
+		return false
+	}
+	return u.Host == r.Host
+}
+
+func guardMutating(w http.ResponseWriter, r *http.Request) bool {
+	if !checkSameOrigin(r) {
+		http.Error(w, "bad origin", http.StatusForbidden)
+		return false
+	}
 	return true
 }
 
@@ -90,6 +193,7 @@ func (s *Server) Run(addr string) error {
 	if err := s.startWatcher(); err != nil {
 		return fmt.Errorf("watcher: %w", err)
 	}
+	go s.startAgentJanitor(nil)
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/files", s.handleFiles)
 	mux.HandleFunc("GET /api/doc", s.handleDoc)
@@ -104,19 +208,20 @@ func (s *Server) Run(addr string) error {
 	})
 
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		webFSLocal, staticLocal := getStatic()
 		path := strings.TrimPrefix(r.URL.Path, "/")
 		if path == "" || path == "index.html" {
-			if staticHandler != nil {
+			if staticLocal != nil {
 				w.Header().Set("Cache-Control", "no-store")
-				staticHandler.ServeHTTP(w, r)
+				staticLocal.ServeHTTP(w, r)
 				return
 			}
 		}
-		if webFS != nil {
-			if f, err := webFS.Open(path); err == nil {
+		if webFSLocal != nil {
+			if f, err := webFSLocal.Open(path); err == nil {
 				_ = f.Close()
 				w.Header().Set("Cache-Control", "no-store")
-				staticHandler.ServeHTTP(w, r)
+				staticLocal.ServeHTTP(w, r)
 				return
 			}
 		}
@@ -125,23 +230,49 @@ func (s *Server) Run(addr string) error {
 		}
 		http.NotFound(w, r)
 	})
-	return http.ListenAndServe(addr, mux)
+	srv := s.newHTTPServer(addr, mux)
+	return srv.ListenAndServe()
+}
+
+func (s *Server) newHTTPServer(addr string, handler http.Handler) *http.Server {
+	return &http.Server{
+		Addr:              addr,
+		Handler:           handler,
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      60 * time.Second,
+		IdleTimeout:       120 * time.Second,
+	}
 }
 
 func writeJSON(w http.ResponseWriter, v any) {
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(v)
+	if err := json.NewEncoder(w).Encode(v); err != nil {
+		// Headers already sent; nothing more to do.
+		return
+	}
 }
 
 func (s *Server) broadcast(msg string) {
 	s.mu.Lock()
-	defer s.mu.Unlock()
+	clients := make([]chan string, 0, len(s.clients))
 	for ch := range s.clients {
+		clients = append(clients, ch)
+	}
+	s.mu.Unlock()
+	for _, ch := range clients {
 		select {
 		case ch <- msg:
 		default:
 		}
 	}
+}
+
+func (s *Server) Close() error {
+	if s.watcher != nil {
+		return s.watcher.Close()
+	}
+	return nil
 }
 
 func (s *Server) startWatcher() error {
@@ -162,11 +293,15 @@ func (s *Server) startWatcher() error {
 		if strings.HasPrefix(base, ".") || base == "node_modules" {
 			return filepath.SkipDir
 		}
-		_ = w.Add(p)
+		if err := w.Add(p); err != nil {
+			fmt.Fprintln(os.Stderr, "watch add:", p, err)
+		}
 		return nil
 	})
 
+	prune := time.NewTicker(5 * time.Minute)
 	go func() {
+		defer prune.Stop()
 		for {
 			select {
 			case ev, ok := <-w.Events:
@@ -178,9 +313,14 @@ func (s *Server) startWatcher() error {
 					if st, err := os.Stat(ev.Name); err == nil && st.IsDir() {
 						base := filepath.Base(ev.Name)
 						if !strings.HasPrefix(base, ".") && base != "node_modules" {
-							_ = w.Add(ev.Name)
+							if err := w.Add(ev.Name); err != nil {
+								fmt.Fprintln(os.Stderr, "watch add:", ev.Name, err)
+							}
 						}
 					}
+				}
+				if ev.Op&fsnotify.Remove != 0 || ev.Op&fsnotify.Rename != 0 {
+					_ = w.Remove(ev.Name)
 				}
 				// watch .md and .c4 changes
 				ext := strings.ToLower(filepath.Ext(ev.Name))
@@ -192,13 +332,24 @@ func (s *Server) startWatcher() error {
 				now := time.Now()
 				s.mu.Lock()
 				last := s.debounce[rel]
+				if now.Sub(last) >= 300*time.Millisecond {
+					s.debounce[rel] = now
+				}
+				// Bound debounce map to avoid leak on huge trees.
+				if len(s.debounce) > 2000 {
+					for k, v := range s.debounce {
+						if now.Sub(v) > 5*time.Minute {
+							delete(s.debounce, k)
+						}
+					}
+					if len(s.debounce) > 2000 {
+						clear(s.debounce)
+					}
+				}
 				s.mu.Unlock()
 				if now.Sub(last) < 300*time.Millisecond {
 					continue
 				}
-				s.mu.Lock()
-				s.debounce[rel] = now
-				s.mu.Unlock()
 				msg, _ := json.Marshal(map[string]string{"type": "reload", "path": rel})
 				s.broadcast(string(msg))
 			case err, ok := <-w.Errors:
@@ -206,6 +357,15 @@ func (s *Server) startWatcher() error {
 					return
 				}
 				fmt.Fprintln(os.Stderr, "watch:", err)
+			case <-prune.C:
+				now := time.Now()
+				s.mu.Lock()
+				for k, v := range s.debounce {
+					if now.Sub(v) > 5*time.Minute {
+						delete(s.debounce, k)
+					}
+				}
+				s.mu.Unlock()
 			}
 		}
 	}()

@@ -12,8 +12,46 @@ import (
 	"golang.org/x/net/html/atom"
 )
 
-// mdLinkRe matches fenced/inline code (group 1) or [label](target) (groups 2–3).
-var mdLinkRe = regexp.MustCompile("(?s)(```.*?```|`[^`\\n]+`)|" + `\[([^\]]*)\]\(([^)]+)\)`)
+// mdLinkRe matches [label](target) outside code. Code fences are stripped
+// beforehand by mapOutsideCode, so no code alternative is needed here.
+var mdLinkRe = regexp.MustCompile(`\[([^\]]*)\]\(([^)]+)\)`)
+
+// mapOutsideCode applies fn only to text outside fenced blocks and inline code.
+func mapOutsideCode(body string, fn func(string) string) string {
+	lines := strings.SplitAfter(body, "\n")
+	var sb strings.Builder
+	inFence := false
+	fence := ""
+	for _, line := range lines {
+		trim := strings.TrimSpace(line)
+		if !inFence && (strings.HasPrefix(trim, "```") || strings.HasPrefix(trim, "~~~")) {
+			inFence = true
+			fence = trim[:3]
+			sb.WriteString(line)
+			continue
+		}
+		if inFence {
+			sb.WriteString(line)
+			if strings.HasPrefix(trim, fence) {
+				inFence = false
+			}
+			continue
+		}
+		parts := strings.Split(line, "`")
+		for i, p := range parts {
+			if i%2 == 0 {
+				sb.WriteString(fn(p))
+			} else {
+				sb.WriteString("`")
+				sb.WriteString(p)
+				if i != len(parts)-1 {
+					sb.WriteString("`")
+				}
+			}
+		}
+	}
+	return sb.String()
+}
 
 // splitHref separates path and fragment from an href (no query expected for docs).
 func splitHref(href string) (pathPart, anchor string) {
@@ -90,15 +128,6 @@ func resolveLocalDocRef(fromRel, href string) (rel, anchor string, ok bool) {
 		return "", "", false
 	}
 	return joined, anchor, true
-}
-
-// knownDocSet builds a set of slash-relative paths that exist under the root.
-func (s *Server) knownDocSet() map[string]bool {
-	known := make(map[string]bool)
-	for _, r := range s.scanRawFiles() {
-		known[r.rel] = true
-	}
-	return known
 }
 
 func attrVal(n *html.Node, key string) string {
@@ -228,21 +257,26 @@ func rewriteDocLinks(htmlStr, fromRel string, known map[string]bool) string {
 
 // collectMarkdownDocLinks returns local doc destinations referenced via [text](href).
 func collectMarkdownDocLinks(fromRel, body string) []string {
-	var out []string
-	matches := mdLinkRe.FindAllStringSubmatch(body, -1)
-	for _, m := range matches {
-		if m[1] != "" {
-			continue
-		}
-		target := strings.TrimSpace(m[3])
-		// Angle-bracket destinations: <https://...> or <./doc.md>
-		target = strings.TrimPrefix(target, "<")
-		target = strings.TrimSuffix(target, ">")
-		rel, _, ok := resolveLocalDocRef(fromRel, target)
-		if !ok {
-			continue
-		}
-		out = append(out, rel)
+	if len(body) > 1<<20 {
+		return nil
 	}
+	var out []string
+	collect := func(seg string) {
+		for _, m := range mdLinkRe.FindAllStringSubmatch(seg, -1) {
+			target := strings.TrimSpace(m[2])
+			// Angle-bracket destinations: <https://...> or <./doc.md>
+			target = strings.TrimPrefix(target, "<")
+			target = strings.TrimSuffix(target, ">")
+			rel, _, ok := resolveLocalDocRef(fromRel, target)
+			if !ok {
+				continue
+			}
+			out = append(out, rel)
+		}
+	}
+	mapOutsideCode(body, func(seg string) string {
+		collect(seg)
+		return seg
+	})
 	return out
 }

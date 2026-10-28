@@ -59,7 +59,9 @@ Contract: `docs/feedback-contract.md`. Playbook: `docs/agent-loop.md`.
 | `GET /api/feedback` | Folded open notes; `?all=1` raw log |
 | `POST /api/feedback` | Append note, ack, or tombstone |
 | `DELETE /api/feedback?id=` | Tombstone an open note |
-| `GET /events` | SSE: `{type:reload\|feedback,…}` |
+| `GET /api/agent` | Ephemeral presence (`working` \| `idle`) |
+| `POST /api/agent` | Set presence |
+| `GET /events` | SSE: `{type:reload\|feedback\|agent,…}` |
 | `GET /healthz` | `ok` |
 
 Full reference: `docs/api.md`.
@@ -71,12 +73,20 @@ make build   # → ./peel
 make test
 ```
 
+UI iterates without rebuild:
+
+```sh
+PEEL_WEB_DIR=./web ./peel --dir fixtures/google-search --port 18125
+# or: ./peel --web ./web --dir fixtures/google-search
+```
+
 ## Test fixture
 
 `fixtures/google-search/` — sample docs + decks (search architecture).
 
 ```sh
 ./peel --dir fixtures/google-search --port 18125
+# open http://127.0.0.1:18125/?file=overview.md
 ```
 
 ## Credits

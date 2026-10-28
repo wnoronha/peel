@@ -59,7 +59,7 @@ func TestAckClearsMatchingAgent(t *testing.T) {
 
 	s.setAgentStatus("working", "", "any")
 	s.clearAgentIfRef("anything")
-	if s.getAgentStatus().State != "idle" {
-		t.Fatal("expected clear when working ref empty")
+	if s.getAgentStatus().State != "working" {
+		t.Fatal("expected keep when working has no ref")
 	}
 }

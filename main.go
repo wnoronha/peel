@@ -12,12 +12,12 @@ import (
 )
 
 var (
-	Version   = "v0.1.2"
+	Version   = "v0.1.3"
 	Commit    = "dev"
 	BuildDate = ""
 )
 
-//go:embed web/*
+//go:embed all:web
 var webFS embed.FS
 
 func main() {
@@ -26,6 +26,7 @@ func main() {
 	dir := flag.String("dir", "", "docs root to serve (default: ./docs if exists else cwd)")
 	port := flag.Int("port", 18124, "port to listen on")
 	host := flag.String("host", "127.0.0.1", "host to bind")
+	web := flag.String("web", "", "web UI dir override (default: embedded; or $PEEL_WEB_DIR)")
 	flag.Parse()
 
 	if *showVersion || *showVersionLong {
@@ -58,16 +59,35 @@ func main() {
 		os.Exit(1)
 	}
 
-	sub, err := fs.Sub(webFS, "web")
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "failed to load embedded web assets:", err)
-		os.Exit(1)
+	webDir := *web
+	if webDir == "" {
+		webDir = os.Getenv("PEEL_WEB_DIR")
 	}
-	server.SetWebFS(sub)
+	if webDir != "" {
+		if err := server.SetWebDir(webDir); err != nil {
+			fmt.Fprintln(os.Stderr, "bad web dir:", err)
+			os.Exit(1)
+		}
+	} else {
+		sub, err := fs.Sub(webFS, "web")
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "failed to load embedded web assets:", err)
+			os.Exit(1)
+		}
+		server.SetWebFS(sub)
+	}
 
 	s := server.New(abs)
 	addr := fmt.Sprintf("%s:%d", *host, *port)
-	fmt.Printf("peel serving %s at http://%s\n", abs, addr)
+	webSrc := "embedded"
+	if webDir != "" {
+		if wa, err := filepath.Abs(webDir); err == nil {
+			webSrc = wa
+		} else {
+			webSrc = webDir
+		}
+	}
+	fmt.Printf("peel serving %s at http://%s (web: %s)\n", abs, addr, webSrc)
 	if err := s.Run(addr); err != nil {
 		fmt.Fprintf(os.Stderr, "server error: %v\n", err)
 		os.Exit(1)
