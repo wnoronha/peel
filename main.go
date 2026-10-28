@@ -17,7 +17,7 @@ var (
 	BuildDate = ""
 )
 
-//go:embed web/*
+//go:embed all:web
 var webFS embed.FS
 
 func main() {
