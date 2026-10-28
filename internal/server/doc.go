@@ -169,12 +169,18 @@ func (s *Server) handleDoc(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "bad path", http.StatusBadRequest)
 		return
 	}
-	if st, err := os.Stat(abs); err != nil || st.IsDir() || st.Size() > 5<<20 {
+	st, err := os.Stat(abs)
+	if err != nil || st.IsDir() || st.Size() > 5<<20 {
 		if err == nil && st != nil && !st.IsDir() && st.Size() > 5<<20 {
 			http.Error(w, "file too large", http.StatusBadRequest)
 		} else {
 			http.Error(w, "not found", http.StatusNotFound)
 		}
+		return
+	}
+	etag := fmt.Sprintf(`"%x-%x"`, st.ModTime().UnixNano(), st.Size())
+	if r.Header.Get("If-None-Match") == etag {
+		w.WriteHeader(http.StatusNotModified)
 		return
 	}
 	rawBytes, err := os.ReadFile(abs)
@@ -217,6 +223,7 @@ func (s *Server) handleDoc(w http.ResponseWriter, r *http.Request) {
 			resp.Levels = append(resp.Levels, C4Level{Name: name, Kind: c4Kind(src), Source: src})
 			resp.Outline = append(resp.Outline, OutlineItem{Level: 1, Text: name, Line: i + 1, ID: slugify(name)})
 		}
+		w.Header().Set("ETag", etag)
 		writeJSON(w, resp)
 		return
 	}
@@ -250,6 +257,7 @@ func (s *Server) handleDoc(w http.ResponseWriter, r *http.Request) {
 		resp.HTML = render(body)
 	}
 
+	w.Header().Set("ETag", etag)
 	writeJSON(w, resp)
 }
 
