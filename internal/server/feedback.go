@@ -181,6 +181,9 @@ func noteExists(events []Feedback, id string) bool {
 }
 
 func (s *Server) handleFeedbackAdd(w http.ResponseWriter, r *http.Request) {
+	if !guardMutating(w, r) {
+		return
+	}
 	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 	var fb Feedback
 	if err := json.NewDecoder(r.Body).Decode(&fb); err != nil {
@@ -293,6 +296,9 @@ func (s *Server) emitFeedback(fb Feedback) {
 }
 
 func (s *Server) handleFeedbackDelete(w http.ResponseWriter, r *http.Request) {
+	if !guardMutating(w, r) {
+		return
+	}
 	id := strings.TrimSpace(r.URL.Query().Get("id"))
 	if id == "" {
 		http.Error(w, "missing id", http.StatusBadRequest)

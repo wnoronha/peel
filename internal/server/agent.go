@@ -123,6 +123,9 @@ func (s *Server) handleAgentGet(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleAgentPost(w http.ResponseWriter, r *http.Request) {
+	if !guardMutating(w, r) {
+		return
+	}
 	r.Body = http.MaxBytesReader(w, r.Body, 256<<10)
 	var body struct {
 		State string `json:"state"`

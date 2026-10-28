@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/fs"
 	"net/http"
+	"net/url"
 	"os"
 	"path"
 	"path/filepath"
@@ -147,6 +148,26 @@ func (s *Server) serveRootAsset(w http.ResponseWriter, r *http.Request) bool {
 	}
 	w.Header().Set("Cache-Control", "public, max-age=3600")
 	http.ServeFile(w, r, abs)
+	return true
+}
+
+func checkSameOrigin(r *http.Request) bool {
+	origin := r.Header.Get("Origin")
+	if origin == "" {
+		return true
+	}
+	u, err := url.Parse(origin)
+	if err != nil || u.Host == "" {
+		return false
+	}
+	return u.Host == r.Host
+}
+
+func guardMutating(w http.ResponseWriter, r *http.Request) bool {
+	if !checkSameOrigin(r) {
+		http.Error(w, "bad origin", http.StatusForbidden)
+		return false
+	}
 	return true
 }
 
