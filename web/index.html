@@ -208,7 +208,7 @@
       <p class="weak" x-show="!visibleFeedback.length && fbStatus==='all'" style="font-size:12px;margin:12px 0 0">No feedback yet.</p>
       <div id="feedback">
         <template x-for="f in [...visibleFeedback].reverse()" :key="f.id">
-          <div class="fb" :class="'fb-' + f.status" @click="jumpToFeedback(f)" :title="'Jump to quoted text · L' + f.startLine">
+          <div class="fb" :class="'fb-' + f.status" @click="jumpToFeedback(f)" @keydown.enter.prevent="jumpToFeedback(f)" tabindex="0" role="button" :aria-label="'Jump to note in ' + f.file" :title="'Jump to quoted text · L' + f.startLine">
             <div class="fb-head">
               <span class="meta">
                 <span class="fb-status" x-text="f.status"></span>
@@ -244,7 +244,7 @@
     </template>
   </div>
 
-  <div id="composer" x-show="composer.open" :style="`left:${composer.x}px;top:${composer.y}px`" @keydown.escape.window="closeComposer()">
+  <div id="composer" x-show="composer.open" :style="`left:${composer.x}px;top:${composer.y}px`" @keydown.escape.window="closeComposer()" role="dialog" aria-label="Feedback composer">
     <button class="cmp-x" @click="closeComposer()" aria-label="Close">×</button>
     <div class="cmp-quote" x-text="composerQuote"></div>
     <div class="chips">
