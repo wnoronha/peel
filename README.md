@@ -73,6 +73,13 @@ make build   # → ./peel
 make test
 ```
 
+UI iterates without rebuild:
+
+```sh
+PEEL_WEB_DIR=./web ./peel --dir fixtures/google-search --port 18125
+# or: ./peel --web ./web --dir fixtures/google-search
+```
+
 ## Test fixture
 
 `fixtures/google-search/` — sample docs + decks (search architecture).

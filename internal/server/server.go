@@ -62,6 +62,24 @@ func SetWebFS(f fs.FS) {
 	staticHandler = http.FileServer(http.FS(f))
 }
 
+// SetWebDir serves the UI from disk (dev iteration without rebuild).
+// Falls back to embedded assets when dir is empty (handled by caller).
+func SetWebDir(dir string) error {
+	abs, err := filepath.Abs(dir)
+	if err != nil {
+		return err
+	}
+	st, err := os.Stat(abs)
+	if err != nil || !st.IsDir() {
+		return fmt.Errorf("not a directory: %s", dir)
+	}
+	webFSMu.Lock()
+	defer webFSMu.Unlock()
+	webFS = os.DirFS(abs)
+	staticHandler = http.FileServer(http.Dir(abs))
+	return nil
+}
+
 // SetStatic keeps compatibility for custom handlers if needed.
 func SetStatic(h http.Handler) {
 	webFSMu.Lock()
