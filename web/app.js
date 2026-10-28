@@ -1206,11 +1206,15 @@ function mountDiagrams(root) {
   if (!window.pele) return;
   root.querySelectorAll('pre.diagram').forEach(pre => {
     const code = pre.querySelector('code');
-    const src = code ? code.textContent : pre.textContent;
+    const src = (code ? code.textContent : pre.textContent).trim();
+    if (/<script|javascript:/i.test(src)) {
+      pre.textContent = 'diagram blocked: unsafe source';
+      return;
+    }
     const div = document.createElement('div');
     div.className = 'pele-diagram';
     pre.replaceWith(div);
-    try { window.pele.mount(div, src.trim()); }
+    try { window.pele.mount(div, src); }
     catch (e) { div.textContent = 'diagram error: ' + e.message; }
   });
 }
