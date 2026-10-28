@@ -296,6 +296,7 @@ function peelApp() {
       this.goto.open = false;
       this.goto.query = '';
       this.goto.idx = 0;
+      this.$nextTick(() => { const el = this.$refs.filter; if (el) el.focus(); });
       this.gotoHits = [];
     },
     onGotoInput() {
@@ -727,6 +728,10 @@ function peelApp() {
       if (q && q.replace(/\s+/g, '').length < 3) q = '';
       const inNote = this.$refs.note && this.$refs.note.contains(document.activeElement);
       const inCmp = document.querySelector('#composer textarea') && document.querySelector('#composer textarea').contains(document.activeElement);
+      if (!q) {
+        if (this.composer.open && !inNote && !inCmp) this.closeComposer();
+        return;
+      }
       if (q && !inNote && !inCmp) {
         const c4n = this.captureC4FromSelection();
         if (c4n && (/[«»]|<<|\n/.test(q) || q.length > 80 || q.replace(/\s+/g, '').length < 2)) {
