@@ -97,6 +97,7 @@ func (s *Server) handleAgentGet(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleAgentPost(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, 256<<10)
 	var body struct {
 		State string `json:"state"`
 		Ref   string `json:"ref"`
@@ -111,11 +112,13 @@ func (s *Server) handleAgentPost(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "state must be working or idle", http.StatusBadRequest)
 		return
 	}
-	note := strings.TrimSpace(body.Note)
-	if len(note) > 200 {
-		note = note[:200]
+	ref := strings.TrimSpace(body.Ref)
+	if len(ref) > 128 {
+		http.Error(w, "ref too large", http.StatusBadRequest)
+		return
 	}
-	st := s.setAgentStatus(state, strings.TrimSpace(body.Ref), note)
+	note := truncateRunes(strings.TrimSpace(body.Note), 200)
+	st := s.setAgentStatus(state, ref, note)
 	s.emitAgent(st)
 	writeJSON(w, map[string]any{"ok": true, "state": st.State, "ref": st.Ref, "note": st.Note, "since": st.Since})
 }

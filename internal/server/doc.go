@@ -171,6 +171,14 @@ func (s *Server) handleDoc(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "bad path", http.StatusBadRequest)
 		return
 	}
+	if st, err := os.Stat(abs); err != nil || st.IsDir() || st.Size() > 5<<20 {
+		if err == nil && st != nil && !st.IsDir() && st.Size() > 5<<20 {
+			http.Error(w, "file too large", http.StatusBadRequest)
+		} else {
+			http.Error(w, "not found", http.StatusNotFound)
+		}
+		return
+	}
 	rawBytes, err := os.ReadFile(abs)
 	if err != nil {
 		http.Error(w, "not found", http.StatusNotFound)

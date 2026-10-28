@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"time"
@@ -68,6 +69,24 @@ func feedbackType(fb Feedback) string {
 		return FeedbackNote
 	}
 	return t
+}
+
+func truncateRunes(s string, n int) string {
+	if n <= 0 {
+		return ""
+	}
+	count := 0
+	for i := range s {
+		if count == n {
+			return s[:i]
+		}
+		count++
+	}
+	return s
+}
+
+func pathCleanSlash(p string) string {
+	return path.Clean(filepath.ToSlash(p))
 }
 
 func (s *Server) appendFeedback(fb Feedback) error {
@@ -145,6 +164,7 @@ func noteExists(events []Feedback, id string) bool {
 }
 
 func (s *Server) handleFeedbackAdd(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 	var fb Feedback
 	if err := json.NewDecoder(r.Body).Decode(&fb); err != nil {
 		http.Error(w, "bad json", http.StatusBadRequest)
@@ -154,8 +174,17 @@ func (s *Server) handleFeedbackAdd(w http.ResponseWriter, r *http.Request) {
 	t := feedbackType(fb)
 	switch t {
 	case FeedbackNote:
-		if strings.Contains(fb.File, "..") || fb.File == "" || filepath.IsAbs(fb.File) {
+		if _, ok := s.safeJoin(fb.File); !ok {
 			http.Error(w, "bad file", http.StatusBadRequest)
+			return
+		}
+		fb.File = pathCleanSlash(fb.File)
+		if len(fb.Note) > 20000 || len(fb.Quote) > 20000 {
+			http.Error(w, "note too large", http.StatusBadRequest)
+			return
+		}
+		if len(fb.File) > 512 || len(fb.HeadingID) > 512 || len(fb.LevelKind) > 64 {
+			http.Error(w, "field too large", http.StatusBadRequest)
 			return
 		}
 		if fb.Note == "" && fb.Quote == "" {
@@ -169,12 +198,9 @@ func (s *Server) handleFeedbackAdd(w http.ResponseWriter, r *http.Request) {
 		fb.Type = FeedbackNote
 		fb.Ref = ""
 		fb.C4ID = sanitizeC4ID(fb.C4ID)
-		fb.C4Label = strings.TrimSpace(fb.C4Label)
+		fb.C4Label = truncateRunes(strings.TrimSpace(fb.C4Label), 200)
 		fb.C4From = sanitizeC4ID(fb.C4From)
 		fb.C4To = sanitizeC4ID(fb.C4To)
-		if len(fb.C4Label) > 200 {
-			fb.C4Label = fb.C4Label[:200]
-		}
 		if fb.C4ID == "" {
 			fb.C4Label = ""
 			fb.C4From = ""
@@ -183,6 +209,10 @@ func (s *Server) handleFeedbackAdd(w http.ResponseWriter, r *http.Request) {
 	case FeedbackAck, FeedbackTombstone:
 		if strings.TrimSpace(fb.Ref) == "" {
 			http.Error(w, "missing ref", http.StatusBadRequest)
+			return
+		}
+		if len(fb.Ref) > 128 || len(fb.Note) > 20000 {
+			http.Error(w, "field too large", http.StatusBadRequest)
 			return
 		}
 		fb.Type = t
