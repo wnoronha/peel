@@ -64,7 +64,7 @@ func (s *Server) clearAgentIfRef(ref string) {
 		return
 	}
 	s.mu.Lock()
-	clear := s.agent.State == "working" && (s.agent.Ref == "" || s.agent.Ref == ref)
+	clear := s.agent.State == "working" && s.agent.Ref != "" && s.agent.Ref == ref
 	if clear {
 		s.agent = agentStored{State: "idle"}
 	}
