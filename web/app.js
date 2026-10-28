@@ -560,8 +560,6 @@ function peelApp() {
         const from = m[1], to = m[2], label = m[3];
         if (from + '-' + to === edgeId) return { id: edgeId, from, to, label };
       }
-      const i = edgeId.indexOf('-');
-      if (i > 0) return { id: edgeId, from: edgeId.slice(0, i), to: edgeId.slice(i + 1), label: '' };
       return null;
     },
 
