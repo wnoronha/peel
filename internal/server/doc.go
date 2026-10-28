@@ -74,6 +74,10 @@ func slugify(t string) string {
 }
 
 func (s *Server) expandWikilinks(body string, targetMap map[string]string) string {
+	// Bound regex work on huge docs to avoid ReDoS stalls.
+	if len(body) > 1<<20 {
+		return body
+	}
 	return wikiSafeRe.ReplaceAllStringFunc(body, func(m string) string {
 		sub := wikiSafeRe.FindStringSubmatch(m)
 		if sub[1] != "" {

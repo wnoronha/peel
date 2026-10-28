@@ -219,6 +219,9 @@ func rewriteDocLinks(htmlStr, fromRel string, known map[string]bool) string {
 
 // collectMarkdownDocLinks returns local doc destinations referenced via [text](href).
 func collectMarkdownDocLinks(fromRel, body string) []string {
+	if len(body) > 1<<20 {
+		return nil
+	}
 	var out []string
 	matches := mdLinkRe.FindAllStringSubmatch(body, -1)
 	for _, m := range matches {
